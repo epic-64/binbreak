@@ -539,7 +539,7 @@ impl BinaryNumbersPuzzle {
             Bits::Sixteen => 20.0,
         };
         let penalty = (streak as f64) * 0.5; // 0.5s less per streak
-        let time_total = (base_time - penalty).max(5.0);
+        let time_total = (base_time - penalty).max(3.0);
         let time_left = time_total;
         let selected_suggestion = Some(suggestions[0]);
         let guess_result = None;
@@ -641,7 +641,7 @@ impl HighScores {
 
     fn save(&self) -> std::io::Result<()> {
         let mut data = String::new();
-        for key in [4u32,44u32,48u32,412u32,8u32,12u32,16u32] { // include new shifted variant key
+        for key in [4u32,44u32,48u32,412u32,8u32,12u32,16u32] {
             let val = self.get(key);
             data.push_str(&format!("{}={}\n", key, val));
         }
