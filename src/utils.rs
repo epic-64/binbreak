@@ -2,18 +2,6 @@ use ratatui::layout::Flex;
 use ratatui::prelude::*;
 use std::collections::HashMap;
 
-pub trait ToDuration {
-    /// Convert a number to a [`std::time::Duration`].
-    fn milliseconds(&self) -> std::time::Duration;
-}
-
-impl ToDuration for u64 {
-    /// Convert a number to a [`std::time::Duration`].
-    fn milliseconds(&self) -> std::time::Duration {
-        std::time::Duration::from_millis(*self)
-    }
-}
-
 pub struct AsciiCell {
     pub ch: char,
     pub x: u16,
@@ -56,10 +44,6 @@ pub struct AsciiCells {
 }
 
 impl AsciiCells {
-    pub fn new(cells: Vec<AsciiCell>) -> Self {
-        Self { cells }
-    }
-
     pub fn from(
         art: String,
         color_map_str: String,
@@ -75,15 +59,6 @@ impl AsciiCells {
 
     pub fn get_height(&self) -> u16 {
         self.cells.iter().map(|cell| cell.y).max().unwrap_or(0) + 1
-    }
-
-    pub fn get_centered_area(&self, area: Rect) -> Rect {
-        let width = self.get_width();
-        let height = self.get_height();
-        let x_offset = (area.width.saturating_sub(width)) / 2;
-        let y_offset = (area.height.saturating_sub(height)) / 2;
-
-        Rect::new(area.x + x_offset, area.y + y_offset, width, height)
     }
 }
 
@@ -110,17 +85,6 @@ impl Widget for AsciiArtWidget {
             }
         }
     }
-}
-
-fn buffer_to_string(buf: &Buffer) -> String {
-    (0..buf.area.height)
-        .map(|y| {
-            (0..buf.area.width)
-                .map(|x| buf[(x, y)].symbol())
-                .collect::<String>()
-        })
-        .collect::<Vec<_>>()
-        .join("\n")
 }
 
 pub fn center(area: Rect, horizontal: Constraint) -> Rect {

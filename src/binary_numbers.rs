@@ -657,6 +657,3 @@ impl HighScores {
         self.scores.insert(bits, score);
     }
 }
-
-// NEW: public helper for external modules (e.g., start screen) to read current high score for a bits mode
-pub fn get_high_score(bits: Bits) -> u32 { HighScores::load().get(bits.high_score_key()) }
