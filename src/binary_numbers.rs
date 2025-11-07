@@ -7,7 +7,7 @@ use ratatui::buffer::Buffer;
 use ratatui::layout::{Constraint, Direction, Flex, Layout, Rect};
 use ratatui::prelude::Alignment::Center;
 use ratatui::prelude::{Color, Line, Style, Stylize, Widget};
-use ratatui::style::Modifier; // added for bold high score marker
+use ratatui::style::Modifier;
 use ratatui::text::Span;
 use ratatui::widgets::BorderType::Double;
 use ratatui::widgets::{Block, BorderType, Paragraph};
