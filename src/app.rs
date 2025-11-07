@@ -5,7 +5,7 @@ use crossterm::event;
 use crossterm::event::{Event, KeyCode, KeyEvent, KeyEventKind, KeyModifiers};
 use ratatui::buffer::Buffer;
 use ratatui::layout::Rect;
-use ratatui::prelude::{Color, Modifier, Span, StatefulWidget, Style, Widget};
+use ratatui::prelude::{Color, Modifier, Span, Style, Widget};
 use ratatui::widgets::{List, ListItem, ListState};
 use std::collections::HashMap;
 use std::thread;

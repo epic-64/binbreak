@@ -22,7 +22,6 @@ struct StatsSnapshot {
     max_streak: u32,
     rounds: u32,
     lives: u32,
-    max_lives: u32,
     bits: Bits,
     hearts: String,
     game_state: GameState, // NEW: overall game state replaces old boolean flags
@@ -479,7 +478,6 @@ impl BinaryNumbersGame {
             max_streak: self.max_streak,
             rounds: self.rounds,
             lives: self.lives,
-            max_lives: self.max_lives,
             bits: self.bits.clone(),
             hearts: self.lives_hearts(),
             game_state: self.game_state,
@@ -607,10 +605,16 @@ fn render_ascii_gauge(area: Rect, buf: &mut Buffer, ratio: f64, color: Color) {
     for x in 0..area.width {
         let filled = x < fill_width;
         let symbol = if filled { "=" } else { " " };
-        let style = if filled { Style::default().fg(color) } else { Style::default().fg(Color::DarkGray) };
-        let cell = buf.get_mut(area.x + x, area.y);
-        cell.set_symbol(symbol);
-        cell.set_style(style);
+        let style = if filled {
+            Style::default().fg(color)
+        } else {
+            Style::default().fg(Color::DarkGray)
+        };
+
+        if let Some(cell) = buf.cell_mut((area.x + x, area.y)) {
+            cell.set_symbol(symbol);
+            cell.set_style(style);
+        }
     }
 }
 

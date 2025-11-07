@@ -8,6 +8,6 @@ pub trait WidgetRef {
 
 pub trait MainScreenWidget: WidgetRef {
     fn run(&mut self, dt: f64) -> ();
-    fn handle_input(&mut self, input: KeyEvent);
+    fn handle_input(&mut self, input: KeyEvent) -> ();
     fn is_exit_intended(&self) -> bool;
 }
