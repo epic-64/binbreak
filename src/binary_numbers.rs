@@ -614,7 +614,6 @@ fn render_ascii_gauge(area: Rect, buf: &mut Buffer, ratio: f64, color: Color) {
     }
 }
 
-// NEW: HighScores management
 struct HighScores { scores: HashMap<u32, u32>, }
 
 impl HighScores {
