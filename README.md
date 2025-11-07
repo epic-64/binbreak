@@ -1,3 +1,21 @@
+![sc1.png](docs/sc1.png)
+
+
+Guess the correct number (from binary to decimal) before time runs out!
+![sc3.png](docs/sc3.png)
+
+Or lose a life trying.
+![sc4.png](docs/sc4.png)
+
+Includes 16-bit mode as well, when you feel a little bit insane.
+![sc6.png](docs/sc6.png)
+
+Includes multiple 4-bit modes, to train individual nibbles.
+![sc5.png](docs/sc5.png)
+
+## Can you crack the high score?
+High scores are tracked for each game-mode separately, and saved in a text file relative to the executable.
+
 ## Play
 Download the release for your platform, see [Releases](https://github.com/epic-64/binbreak/releases).  
 There is one file for linux and one for windows (.exe).
@@ -8,8 +26,11 @@ There is one file for linux and one for windows (.exe).
 - make it executable: `chmod +x binbreak-linux`
 - run the game: `./binbreak-linux`
 
-
 Instead of relying on prebuilt binaries, you can also build from source.
+
+## Retro aesthetics
+For the best experience, I recommend using Cool Retro Terminal on Linux, or Windows Terminal in Retro mode.  
+But the game should run fine in any terminal.
 
 ## Build/Run from source
 - download the source code
