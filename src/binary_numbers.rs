@@ -274,7 +274,7 @@ pub struct BinaryNumbersGame {
     new_high_score_reached: bool,
 }
 
-#[derive(Copy, Clone, PartialEq)]
+#[derive(Copy, Clone, PartialEq, Debug)]
 enum GameState { Active, Result, PendingGameOver, GameOver }
 
 impl MainScreenWidget for BinaryNumbersGame {
@@ -483,7 +483,7 @@ impl BinaryNumbersGame {
     }
 }
 
-#[derive(PartialEq, Copy, Clone)]
+#[derive(PartialEq, Copy, Clone, Debug)]
 enum GuessResult {
     Correct,
     Incorrect,
@@ -655,5 +655,168 @@ impl HighScores {
 
     fn update(&mut self, bits: u32, score: u32) {
         self.scores.insert(bits, score);
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crossterm::event::{KeyModifiers, KeyEventKind, KeyEventState};
+    use std::sync::Mutex;
+    use std::fs;
+
+    static HS_LOCK: Mutex<()> = Mutex::new(());
+
+    fn with_high_score_file<F: FnOnce()>(f: F) {
+        let _guard = HS_LOCK.lock().unwrap();
+        let original = fs::read_to_string(HighScores::FILE).ok();
+        f();
+        // restore
+        match original {
+            Some(data) => { let _ = fs::write(HighScores::FILE, data); }
+            None => { let _ = fs::remove_file(HighScores::FILE); }
+        }
+    }
+
+    #[test]
+    fn bits_properties() {
+        assert_eq!(Bits::Four.to_int(), 4);
+        assert_eq!(Bits::Four.upper_bound(), 15);
+        assert_eq!(Bits::Four.suggestion_count(), 3);
+
+        assert_eq!(Bits::FourShift4.scale_factor(), 16);
+        assert_eq!(Bits::FourShift4.upper_bound(), 240);
+        assert_eq!(Bits::FourShift4.suggestion_count(), 3);
+
+        assert_eq!(Bits::FourShift8.scale_factor(), 256);
+        assert_eq!(Bits::FourShift12.high_score_key(), 412);
+        assert_eq!(Bits::Eight.upper_bound(), 255);
+
+        assert_eq!(Bits::Sixteen.suggestion_count(), 6);
+    }
+
+    #[test]
+    fn puzzle_generation_unique_and_scaled() {
+        let p = BinaryNumbersPuzzle::new(Bits::FourShift4.clone(), 0);
+        let scale = Bits::FourShift4.scale_factor();
+        assert_eq!(p.suggestions().len(), Bits::FourShift4.suggestion_count());
+        // uniqueness
+        let mut sorted = p.suggestions().to_vec();
+        sorted.sort();
+        for pair in sorted.windows(2) { assert_ne!(pair[0], pair[1]); }
+        // scaling property
+        for &s in p.suggestions() { assert_eq!(s % scale, 0); }
+        // current number must be one of suggestions and raw_current_number * scale == current_number
+        assert!(p.suggestions().contains(&p.current_number));
+        assert_eq!(p.raw_current_number * scale, p.current_number);
+    }
+
+    #[test]
+    fn binary_string_formatting_groups_every_four_bits() {
+        let mut p = BinaryNumbersPuzzle::new(Bits::Eight, 0);
+        p.raw_current_number = 0xAB; // 171 = 10101011
+        assert_eq!(p.current_to_binary_string(), "1010 1011");
+        let mut p4 = BinaryNumbersPuzzle::new(Bits::Four, 0);
+        p4.raw_current_number = 0b0101;
+        assert_eq!(p4.current_to_binary_string(), "0101");
+    }
+
+    #[test]
+    fn puzzle_timeout_sets_guess_result() {
+        let mut p = BinaryNumbersPuzzle::new(Bits::Four, 0);
+        p.time_left = 0.5;
+        p.run(1.0); // exceed remaining time
+        assert_eq!(p.guess_result, Some(GuessResult::Timeout));
+    }
+
+    #[test]
+    fn finalize_round_correct_increments_score_streak_and_sets_result_state() {
+        with_high_score_file(|| {
+            let mut g = BinaryNumbersGame::new(Bits::Four);
+            // ensure deterministic: mark puzzle correct
+            let answer = g.puzzle.current_number;
+            g.puzzle.guess_result = Some(GuessResult::Correct);
+            g.finalize_round();
+            assert_eq!(g.streak, 1);
+            assert_eq!(g.score, 10); // base points
+            assert_eq!(g.puzzle.last_points_awarded, 10);
+            assert_eq!(g.game_state, GameState::Result);
+            assert!(g.puzzle_resolved);
+            assert!(g.puzzle.is_correct_guess(answer));
+        });
+    }
+
+    #[test]
+    fn life_awarded_every_five_streak() {
+        with_high_score_file(|| {
+            let mut g = BinaryNumbersGame::new_with_max_lives(Bits::Four, 3);
+            g.lives = 2; // below max
+            g.streak = 4; // about to become 5
+            g.puzzle.guess_result = Some(GuessResult::Correct);
+            g.finalize_round();
+            assert_eq!(g.streak, 5);
+            assert_eq!(g.lives, 3); // gained life
+        });
+    }
+
+    #[test]
+    fn incorrect_guess_resets_streak_and_loses_life() {
+        with_high_score_file(|| {
+            let mut g = BinaryNumbersGame::new(Bits::Four);
+            g.streak = 3;
+            let lives_before = g.lives;
+            g.puzzle.guess_result = Some(GuessResult::Incorrect);
+            g.finalize_round();
+            assert_eq!(g.streak, 0);
+            assert_eq!(g.lives, lives_before - 1);
+        });
+    }
+
+    #[test]
+    fn pending_game_over_when_life_reaches_zero() {
+        with_high_score_file(|| {
+            let mut g = BinaryNumbersGame::new(Bits::Four);
+            g.lives = 1;
+            g.puzzle.guess_result = Some(GuessResult::Incorrect);
+            g.finalize_round();
+            assert_eq!(g.lives, 0);
+            assert_eq!(g.game_state, GameState::PendingGameOver);
+        });
+    }
+
+    #[test]
+    fn high_score_updates_and_flag_set() {
+        with_high_score_file(|| {
+            let mut g = BinaryNumbersGame::new(Bits::Four);
+            // Force previous high score low
+            g.high_scores.update(g.bits.high_score_key(), 5);
+            g.prev_high_score_for_display = 5;
+            g.puzzle.guess_result = Some(GuessResult::Correct);
+            g.finalize_round();
+            assert!(g.new_high_score_reached);
+            assert!(g.high_scores.get(g.bits.high_score_key()) >= 10);
+            assert_eq!(g.prev_high_score_for_display, 5); // previous stored
+        });
+    }
+
+    #[test]
+    fn hearts_representation_matches_lives() {
+        let mut g = BinaryNumbersGame::new_with_max_lives(Bits::Four, 3);
+        g.lives = 2;
+        assert_eq!(g.lives_hearts(), "♥♥·");
+    }
+
+    #[test]
+    fn handle_input_navigation_changes_selected_suggestion() {
+        let mut g = BinaryNumbersGame::new(Bits::Four);
+        let initial = g.puzzle.selected_suggestion;
+        // Simulate Right key
+        let right_event = KeyEvent { code: KeyCode::Right, modifiers: KeyModifiers::empty(), kind: KeyEventKind::Press, state: KeyEventState::NONE };
+        g.handle_game_input(right_event);
+        assert_ne!(g.puzzle.selected_suggestion, initial);
+        // Simulate Left key should cycle back
+        let left_event = KeyEvent { code: KeyCode::Left, modifiers: KeyModifiers::empty(), kind: KeyEventKind::Press, state: KeyEventState::NONE };
+        g.handle_game_input(left_event);
+        assert!(g.puzzle.selected_suggestion.is_some());
     }
 }
