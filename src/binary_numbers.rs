@@ -512,7 +512,7 @@ pub struct BinaryNumbersPuzzle {
     time_left: f64,
     guess_result: Option<GuessResult>,
     last_points_awarded: u32,
-    stats_snapshot: Option<StatsSnapshot>, // NEW: integrated stats
+    stats_snapshot: Option<StatsSnapshot>,
 }
 
 impl BinaryNumbersPuzzle {
