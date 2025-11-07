@@ -33,6 +33,11 @@ There is one file for linux and one for windows (.exe).
 - make it executable: `chmod +x binbreak-linux`
 - run the game: `./binbreak-linux`
 
+## Controls
+- use the arrow keys for navigation
+- press Enter to confirm choices
+- press Esc to exit a game mode or the game. CTRL+C also works to exit the game.
+
 Instead of relying on prebuilt binaries, you can also build from source.
 
 ## Retro aesthetics
