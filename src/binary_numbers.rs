@@ -15,7 +15,6 @@ use std::collections::HashMap;
 use std::fs::{File};
 use std::io::{Read, Write};
 
-// NEW: snapshot of game stats passed into puzzle for integrated layout
 struct StatsSnapshot {
     score: u32,
     streak: u32,
@@ -24,9 +23,9 @@ struct StatsSnapshot {
     lives: u32,
     bits: Bits,
     hearts: String,
-    game_state: GameState, // NEW: overall game state replaces old boolean flags
-    prev_high_score: u32,      // NEW: previous high score for this mode
-    new_high_score: bool,      // NEW: whether current score is a new high score
+    game_state: GameState,
+    prev_high_score: u32,
+    new_high_score: bool,
 }
 
 impl WidgetRef for BinaryNumbersGame {
@@ -35,37 +34,34 @@ impl WidgetRef for BinaryNumbersGame {
             .flex(Flex::Center)
             .horizontal_margin(1)
             .areas(area);
-        // puzzle holds latest stats snapshot updated during run()
+
         self.puzzle.render_ref(game_column, buf);
     }
 }
 
 impl WidgetRef for BinaryNumbersPuzzle {
     fn render_ref(&self, area: Rect, buf: &mut Buffer) {
-        // Unified vertical layout: stats + current number + suggestions + status/time + result/instructions (or game over)
         let [middle] = Layout::horizontal([Constraint::Percentage(100)])
             .flex(Flex::Center)
             .areas(area);
 
         let [stats_area, current_number_area, suggestions_area, progress_bar_area, result_area] =
             Layout::vertical([
-                Constraint::Length(4),  // stats row expanded for two lines
-                Constraint::Length(5),  // current number area
-                Constraint::Length(3),  // suggestion area
-                Constraint::Length(4),  // status + time area
-                Constraint::Length(5),  // result / instructions area OR game over block
+                Constraint::Length(4),
+                Constraint::Length(5),
+                Constraint::Length(3),
+                Constraint::Length(4),
+                Constraint::Length(5),
             ])
             .flex(Flex::Center)
             .horizontal_margin(0)
             .areas(middle);
 
-        // Render stats bar integrated at top
         Block::bordered()
             .title_alignment(Center)
             .dark_gray()
             .render(stats_area, buf);
 
-        // Use snapshot if present
         if let Some(stats) = &self.stats_snapshot {
             let high_label = if stats.new_high_score {
                 let style = Style::default().fg(Color::LightGreen).add_modifier(Modifier::BOLD);
@@ -225,8 +221,8 @@ impl WidgetRef for BinaryNumbersPuzzle {
 
         // Vertical layout inside the time block interior: gauge line + text line (2 lines total)
         let [gauge_line, time_line] = Layout::vertical([
-            Constraint::Length(1), // gauge occupies one row
-            Constraint::Length(1), // time text occupies one row
+            Constraint::Length(1),
+            Constraint::Length(1)
         ]).areas(inner_time);
 
         render_ascii_gauge(gauge_line, buf, ratio, gauge_color);
@@ -270,12 +266,12 @@ pub struct BinaryNumbersGame {
     rounds: u32,
     puzzle_resolved: bool,
     lives: u32,
-    max_lives: u32, // NEW: configurable max lives
-    game_state: GameState, // NEW
+    max_lives: u32,
+    game_state: GameState,
     max_streak: u32,
-    high_scores: HighScores,           // NEW: persistent high scores
-    prev_high_score_for_display: u32,  // NEW: previous high score captured at game over
-    new_high_score_reached: bool,      // NEW: flag if new high score achieved
+    high_scores: HighScores,
+    prev_high_score_for_display: u32,
+    new_high_score_reached: bool,
 }
 
 #[derive(Copy, Clone, PartialEq)]
