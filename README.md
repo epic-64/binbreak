@@ -13,7 +13,14 @@ Includes 16-bit mode as well, when you feel a little bit insane.
 Includes multiple 4-bit modes, to train individual nibbles.
 ![sc5.png](docs/sc5.png)
 
+## Colorblind friendly
+I discovered usability issues early on while testing on a monochromatic terminal emulator,
+and took this as a challenge to make it work well regardless of color perception.
+![sc7.png](docs/sc7.png)
+
 ## Can you crack the high score?
+The longer your streak, the more points you get, but the faster the timer runs out!
+
 High scores are tracked for each game-mode separately, and saved in a text file relative to the executable.
 
 ## Play
