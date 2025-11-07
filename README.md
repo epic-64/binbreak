@@ -26,3 +26,5 @@ cargo run --release
 ```bash
 cargo test
 ```
+
+[![Built With Ratatui](https://ratatui.rs/built-with-ratatui/badge.svg)](https://ratatui.rs/)
