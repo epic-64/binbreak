@@ -149,7 +149,7 @@ pub fn run_app(terminal: &mut ratatui::DefaultTerminal) -> color_eyre::Result<()
                                 AppState::Start(mut menu) => handle_start_input(&mut menu, key)
                                     .unwrap_or(AppState::Start(menu)),
                                 AppState::Playing(mut game) => {
-                                    game.handle_game_input(key);
+                                    game.handle_input(key);
                                     AppState::Playing(game)
                                 }
                                 AppState::Exit => AppState::Exit,
