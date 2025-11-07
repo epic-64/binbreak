@@ -1,10 +1,17 @@
 [package]
 name = "binbreak"
-version = "0.0.1"
+version = "0.1.0"
 description = "A terminal based binary number guessing game"
 authors = ["William Raendchen <william@holonaut.io>"]
 license = "MIT"
 edition = "2024"
+repository = "https://github.com/epic-64/binbreak"
+readme = "README.md"
+keywords = ["tui", "terminal", "game", "binary", "numbers"]
+categories = ["games", "command-line-utilities"]
+documentation = "https://docs.rs/binbreak"
+homepage = "https://github.com/epic-64/binbreak"
+exclude = ["binbreak_highscores.txt", "target/*", ".github/*"]
 
 [dependencies]
 crossterm = "0.29.0"
