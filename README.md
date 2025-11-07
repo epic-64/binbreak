@@ -38,13 +38,13 @@ There is one file for linux and one for windows (.exe).
 - press Enter to confirm choices
 - press Esc to exit a game mode or the game. CTRL+C also works to exit the game.
 
-Instead of relying on prebuilt binaries, you can also build from source.
-
 ## Retro aesthetics
 For the best experience, I recommend using Cool Retro Terminal on Linux, or Windows Terminal in Retro mode.  
 But the game should run fine in any terminal.
 
 ## Build/Run from source
+You be inclined to not run binaries from the internet, and want to build from source instead.
+
 - download the source code
 - make sure you have Rust and Cargo installed, see [rustup.rs](https://rustup.rs/)
 - open a terminal and navigate to the folder where you downloaded the source code, e.g. `cd ~/Downloads/binbreak`
