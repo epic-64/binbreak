@@ -165,6 +165,15 @@ pub fn run_app(terminal: &mut ratatui::DefaultTerminal) -> color_eyre::Result<()
         let dt = now - last_frame_time;
         last_frame_time = now;
 
+        // Advance game BEFORE drawing so stats are updated
+        if let AppState::Playing(game) = &mut app_state {
+            game.run(dt.as_secs_f64());
+            if game.is_exit_intended() {
+                app_state = AppState::Start(StartMenuState::new());
+                continue;
+            }
+        }
+
         terminal.draw(|f| match &mut app_state {
             AppState::Start(menu) => render_start_screen(menu, f.area(), f.buffer_mut()),
             AppState::Playing(game) => f.render_widget(&mut *game, f.area()),
@@ -174,15 +183,6 @@ pub fn run_app(terminal: &mut ratatui::DefaultTerminal) -> color_eyre::Result<()
         // Clear needs_render flag after frame is rendered
         if let AppState::Playing(game) = &mut app_state {
             game.clear_needs_render();
-        }
-
-        // Advance game if playing
-        if let AppState::Playing(game) = &mut app_state {
-            game.run(dt.as_secs_f64());
-            if game.is_exit_intended() {
-                app_state = AppState::Start(StartMenuState::new());
-                continue;
-            }
         }
 
         // handle input
