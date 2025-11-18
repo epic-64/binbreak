@@ -1,4 +1,4 @@
-use crate::binary_numbers::{BinaryNumbersGame, Bits};
+use crate::binary_numbers::{BinaryNumbersGame, Bits, FpsMode};
 use crate::main_screen_widget::MainScreenWidget;
 use crate::utils::{AsciiArtWidget, AsciiCells};
 use crossterm::event;
@@ -7,6 +7,7 @@ use ratatui::buffer::Buffer;
 use ratatui::layout::Rect;
 use ratatui::prelude::{Color, Modifier, Span, Style, Widget};
 use ratatui::widgets::{List, ListItem, ListState};
+use std::cmp;
 use std::collections::HashMap;
 use std::thread;
 use std::time::Instant;
@@ -106,6 +107,37 @@ fn render_start_screen(state: &mut StartMenuState, area: Rect, buf: &mut Buffer)
     ratatui::widgets::StatefulWidget::render(list, list_area, buf, &mut state.list_state);
 }
 
+fn handle_crossterm_events(app_state: &mut AppState) -> color_eyre::Result<()> {
+    if let Event::Key(key) = event::read()? {
+        if key.kind == KeyEventKind::Press {
+            match key.code {
+                // global exit via Ctrl+C
+                KeyCode::Char('c') | KeyCode::Char('C')
+                    if key.modifiers == KeyModifiers::CONTROL =>
+                {
+                    *app_state = AppState::Exit;
+                }
+
+                // state-specific input handling
+                _ => {
+                    *app_state = match std::mem::replace(app_state, AppState::Exit) {
+                        AppState::Start(mut menu) => {
+                            handle_start_input(&mut menu, key)
+                                .unwrap_or(AppState::Start(menu))
+                        }
+                        AppState::Playing(mut game) => {
+                            game.handle_input(key);
+                            AppState::Playing(game)
+                        }
+                        AppState::Exit => AppState::Exit,
+                    }
+                }
+            }
+        }
+    }
+    Ok(())
+}
+
 pub fn run_app(terminal: &mut ratatui::DefaultTerminal) -> color_eyre::Result<()> {
     let mut app_state = AppState::Start(StartMenuState::new());
     let mut last_frame_time = Instant::now();
@@ -122,6 +154,11 @@ pub fn run_app(terminal: &mut ratatui::DefaultTerminal) -> color_eyre::Result<()
             AppState::Exit => {}
         })?;
 
+        // Clear needs_render flag after frame is rendered
+        if let AppState::Playing(game) = &mut app_state {
+            game.clear_needs_render();
+        }
+
         // Advance game if playing
         if let AppState::Playing(game) = &mut app_state {
             game.run(dt.as_secs_f64());
@@ -132,33 +169,21 @@ pub fn run_app(terminal: &mut ratatui::DefaultTerminal) -> color_eyre::Result<()
         }
 
         // handle input
-        let poll_timeout = std::cmp::min(dt, target_frame_duration);
-        if event::poll(poll_timeout)? {
-            if let Event::Key(key) = event::read()? {
-                if key.kind == KeyEventKind::Press {
-                    match key.code {
-                        // global exit via Ctrl+C
-                        KeyCode::Char('c') | KeyCode::Char('C')
-                            if key.modifiers == KeyModifiers::CONTROL =>
-                        {
-                            app_state = AppState::Exit;
-                        }
-
-                        // state-specific input handling
-                        _ => {
-                            app_state = match app_state {
-                                AppState::Start(mut menu) => handle_start_input(&mut menu, key)
-                                    .unwrap_or(AppState::Start(menu)),
-                                AppState::Playing(mut game) => {
-                                    game.handle_input(key);
-                                    AppState::Playing(game)
-                                }
-                                AppState::Exit => AppState::Exit,
-                            }
-                        }
-                    }
+        if let AppState::Playing(game) = &app_state {
+            let fps_mode = game.get_fps_mode();
+            if fps_mode == FpsMode::RealTime {
+                let poll_timeout = cmp::min(dt, target_frame_duration);
+                if event::poll(poll_timeout)? {
+                    handle_crossterm_events(&mut app_state)?;
                 }
+            } else {
+                // performance mode: block thread until an input event occurs
+                handle_crossterm_events(&mut app_state)?;
             }
+        } else {
+            // For non-playing states (e.g., start menu), use performance mode
+            // to block until input and minimize CPU usage
+            handle_crossterm_events(&mut app_state)?;
         }
 
         // cap frame rate
