@@ -26,7 +26,6 @@ struct StatsSnapshot {
     game_state: GameState,
     prev_high_score: u32,
     new_high_score: bool,
-    fps_mode: FpsMode,
 }
 
 impl WidgetRef for BinaryNumbersGame {
@@ -77,18 +76,12 @@ impl WidgetRef for BinaryNumbersPuzzle {
                 high_label,
             ]);
 
-            let fps_label = match stats.fps_mode {
-                FpsMode::Performance => Span::styled("FPS: Perf  ", Style::default().fg(Color::LightGreen)),
-                FpsMode::RealTime => Span::styled("FPS: RT  ", Style::default().fg(Color::LightYellow)),
-            };
-
             let line2 = Line::from(vec![
                 Span::styled(format!("Score: {}  ", stats.score), Style::default().fg(Color::Green)),
                 Span::styled(format!("Streak: {}  ", stats.streak), Style::default().fg(Color::Cyan)),
                 Span::styled(format!("Max: {}  ", stats.max_streak), Style::default().fg(Color::Blue)),
                 Span::styled(format!("Rounds: {}  ", stats.rounds), Style::default().fg(Color::Magenta)),
                 Span::styled(format!("Lives: {}  ", stats.hearts), Style::default().fg(Color::Red)),
-                fps_label,
             ]);
 
             let widest = line1.width().max(line2.width()) as u16;
@@ -136,7 +129,12 @@ impl WidgetRef for BinaryNumbersPuzzle {
             .render(inner, buf);
 
         let binary_string = self.current_to_binary_string();
-        let scale_suffix = match self.bits { Bits::FourShift4 => Some(" x16"), Bits::FourShift8 => Some(" x256"), Bits::FourShift12 => Some(" x4096"), _ => None };
+        let scale_suffix = match self.bits {
+            Bits::FourShift4 => Some(" x16"),
+            Bits::FourShift8 => Some(" x256"),
+            Bits::FourShift12 => Some(" x4096"),
+            _ => None
+        };
         let mut spans = vec![Span::raw(binary_string.clone())];
         if let Some(sfx) = scale_suffix { spans.push(Span::styled(sfx, Style::default().fg(Color::DarkGray))); }
         let total_width = spans.iter().map(|s| s.width()).sum::<usize>() as u16;
@@ -279,15 +277,9 @@ pub struct BinaryNumbersGame {
     high_scores: HighScores,
     prev_high_score_for_display: u32,
     new_high_score_reached: bool,
-    pub fps_mode: FpsMode,
     needs_render: bool,  // Flag to render one frame after state transition
 }
 
-#[derive(Copy, Clone, PartialEq, Debug)]
-pub enum FpsMode {
-    RealTime,    // 30 FPS with polling
-    Performance, // Block until input for higher FPS
-}
 
 #[derive(Copy, Clone, PartialEq, Debug)]
 enum GameState { Active, Result, PendingGameOver, GameOver }
@@ -325,7 +317,6 @@ impl BinaryNumbersGame {
             high_scores: hs,
             prev_high_score_for_display: starting_prev,
             new_high_score_reached: false,
-            fps_mode: FpsMode::Performance,
             needs_render: true,  // Need to render initial state
         };
         // Initialize stats snapshot immediately so stats display on first render
@@ -337,31 +328,16 @@ impl BinaryNumbersGame {
         BinaryNumbersPuzzle::new(bits, streak)
     }
 
-    /// Get the appropriate FPS mode based on current game state
-    pub fn get_fps_mode(&self) -> FpsMode {
-        match self.game_state {
-            GameState::Active => {
-                FpsMode::RealTime  // Timer running, needs continuous updates
-            }
-            GameState::Result | GameState::PendingGameOver => {
-                // Use RealTime mode for one frame after transition, then Performance
-                if self.needs_render {
-                    FpsMode::RealTime
-                } else {
-                    FpsMode::Performance
-                }
-            }
-            GameState::GameOver => {
-                FpsMode::Performance  // Static final screen, can block until input
-            }
-        }
+    /// Check if the game is in Active state (timer running)
+    pub fn is_active(&self) -> bool {
+        self.game_state == GameState::Active
     }
-    
-    /// Mark that we need to render one frame (e.g., after state transition)
-    pub fn mark_needs_render(&mut self) {
-        self.needs_render = true;
+
+    /// Check if we need to render one frame (e.g., after state transition)
+    pub fn needs_render(&self) -> bool {
+        self.needs_render
     }
-    
+
     /// Clear the needs_render flag after rendering
     pub fn clear_needs_render(&mut self) {
         self.needs_render = false;
@@ -532,7 +508,6 @@ impl BinaryNumbersGame {
             game_state: self.game_state,
             prev_high_score: self.prev_high_score_for_display,
             new_high_score: self.new_high_score_reached,
-            fps_mode: self.get_fps_mode(),
         });
     }
 }

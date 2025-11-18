@@ -1,4 +1,4 @@
-use crate::binary_numbers::{BinaryNumbersGame, Bits, FpsMode};
+use crate::binary_numbers::{BinaryNumbersGame, Bits};
 use crate::main_screen_widget::MainScreenWidget;
 use crate::utils::{AsciiArtWidget, AsciiCells};
 use crossterm::event;
@@ -12,6 +12,12 @@ use std::collections::HashMap;
 use std::thread;
 use std::time::Instant;
 use indoc::indoc;
+
+#[derive(Copy, Clone, PartialEq, Debug)]
+enum FpsMode {
+    RealTime,    // 30 FPS with polling
+    Performance, // Block until input for minimal CPU
+}
 
 enum AppState {
     Start(StartMenuState),
@@ -138,6 +144,17 @@ fn handle_crossterm_events(app_state: &mut AppState) -> color_eyre::Result<()> {
     Ok(())
 }
 
+/// Determine the appropriate FPS mode based on the current game state
+fn get_fps_mode(game: &BinaryNumbersGame) -> FpsMode {
+    if game.is_active() {
+        FpsMode::RealTime  // Timer running, needs continuous updates
+    } else if game.needs_render() {
+        FpsMode::RealTime  // One frame after state transition
+    } else {
+        FpsMode::Performance  // All other cases, block for minimal CPU
+    }
+}
+
 pub fn run_app(terminal: &mut ratatui::DefaultTerminal) -> color_eyre::Result<()> {
     let mut app_state = AppState::Start(StartMenuState::new());
     let mut last_frame_time = Instant::now();
@@ -170,7 +187,7 @@ pub fn run_app(terminal: &mut ratatui::DefaultTerminal) -> color_eyre::Result<()
 
         // handle input
         if let AppState::Playing(game) = &app_state {
-            let fps_mode = game.get_fps_mode();
+            let fps_mode = get_fps_mode(game);
             if fps_mode == FpsMode::RealTime {
                 let poll_timeout = cmp::min(dt, target_frame_duration);
                 if event::poll(poll_timeout)? {
