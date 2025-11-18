@@ -42,14 +42,6 @@ The game should run fine in any terminal. If you want retro CRT effects, here ar
 - Windows: Windows Terminal (enable experimental "retro mode")
 - Linux: Rio (with CRT shader), Cool Retro Term
 
-## Resource Conscious
-In most game-states, the game will sleep until your next input, resulting in 0% CPU usage while idle.  
-![sc9.png](docs/sc9.png)
-
-Only during an active puzzle (timer running), the game runs at ~30 FPS, which results in some CPU usage.  
-![sc8.png](docs/sc8.png)
-
-
 ## Build/Run from source
 You may be inclined to not run binaries from the internet, and want to build from source instead.
 
