@@ -542,6 +542,7 @@ pub struct BinaryNumbersPuzzle {
     guess_result: Option<GuessResult>,
     last_points_awarded: u32,
     stats_snapshot: Option<StatsSnapshot>,
+    skip_first_dt: bool, // Skip first dt to prevent timer jump when starting new puzzle
 }
 
 impl BinaryNumbersPuzzle {
@@ -585,6 +586,7 @@ impl BinaryNumbersPuzzle {
             guess_result,
             last_points_awarded,
             stats_snapshot: None,
+            skip_first_dt: true, // Skip first dt to prevent timer jump
         }
     }
 
@@ -605,6 +607,12 @@ impl BinaryNumbersPuzzle {
     pub fn run(&mut self, dt: f64) {
         if self.guess_result.is_some() {
             // If a guess has been made, we don't need to run the game logic anymore.
+            return;
+        }
+
+        // Skip first dt to prevent timer jump when starting new puzzle
+        if self.skip_first_dt {
+            self.skip_first_dt = false;
             return;
         }
 
