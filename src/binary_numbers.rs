@@ -761,6 +761,11 @@ mod tests {
     fn puzzle_timeout_sets_guess_result() {
         let mut p = BinaryNumbersPuzzle::new(Bits::Four, 0);
         p.time_left = 0.5;
+        // First run() skips dt due to skip_first_dt flag
+        // The reason for this is to prevent timer jump when starting a new puzzle
+        p.run(1.0);
+        assert_eq!(p.guess_result, None, "First run should skip dt");
+        // Second run() actually applies the dt and triggers timeout
         p.run(1.0); // exceed remaining time
         assert_eq!(p.guess_result, Some(GuessResult::Timeout));
     }
