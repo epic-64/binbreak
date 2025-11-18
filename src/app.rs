@@ -127,29 +127,29 @@ fn render_start_screen(state: &mut StartMenuState, area: Rect, buf: &mut Buffer)
 }
 
 fn handle_crossterm_events(app_state: &mut AppState) -> color_eyre::Result<()> {
-    if let Event::Key(key) = event::read()? {
-        if key.kind == KeyEventKind::Press {
-            match key.code {
-                // global exit via Ctrl+C
-                KeyCode::Char('c') | KeyCode::Char('C')
-                    if key.modifiers == KeyModifiers::CONTROL =>
-                {
-                    *app_state = AppState::Exit;
-                }
+    if let Event::Key(key) = event::read()?
+        && key.kind == KeyEventKind::Press
+    {
+        match key.code {
+            // global exit via Ctrl+C
+            KeyCode::Char('c') | KeyCode::Char('C')
+                if key.modifiers == KeyModifiers::CONTROL =>
+            {
+                *app_state = AppState::Exit;
+            }
 
-                // state-specific input handling
-                _ => {
-                    *app_state = match std::mem::replace(app_state, AppState::Exit) {
-                        AppState::Start(mut menu) => {
-                            handle_start_input(&mut menu, key)
-                                .unwrap_or(AppState::Start(menu))
-                        }
-                        AppState::Playing(mut game) => {
-                            game.handle_input(key);
-                            AppState::Playing(game)
-                        }
-                        AppState::Exit => AppState::Exit,
+            // state-specific input handling
+            _ => {
+                *app_state = match std::mem::replace(app_state, AppState::Exit) {
+                    AppState::Start(mut menu) => {
+                        handle_start_input(&mut menu, key)
+                            .unwrap_or(AppState::Start(menu))
                     }
+                    AppState::Playing(mut game) => {
+                        game.handle_input(key);
+                        AppState::Playing(game)
+                    }
+                    AppState::Exit => AppState::Exit,
                 }
             }
         }
