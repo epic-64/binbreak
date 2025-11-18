@@ -1,3 +1,4 @@
+use crate::keybinds;
 use crate::main_screen_widget::{MainScreenWidget, WidgetRef};
 use crate::utils::{center, When};
 use crossterm::event::{KeyCode, KeyEvent};
@@ -394,7 +395,7 @@ impl BinaryNumbersGame {
     }
 
     pub fn handle_game_input(&mut self, input: KeyEvent) {
-        if input.code == KeyCode::Esc { self.exit_intended = true; return; }
+        if keybinds::is_exit(input) { self.exit_intended = true; return; }
 
         if self.game_state == GameState::GameOver { self.handle_game_over_input(input); return; }
         match self.puzzle.guess_result {
@@ -403,10 +404,10 @@ impl BinaryNumbersGame {
         }
     }
 
-    fn handle_game_over_input(&mut self, input: KeyEvent) {
-        match input.code {
-            KeyCode::Enter => { self.reset_game_state(); }
-            KeyCode::Esc => { self.exit_intended = true; }
+    fn handle_game_over_input(&mut self, key: KeyEvent) {
+        match key {
+            x if keybinds::is_select(x) => { self.reset_game_state(); }
+            x if keybinds::is_exit(x) => { self.exit_intended = true; }
             _ => {}
         }
     }
@@ -426,8 +427,8 @@ impl BinaryNumbersGame {
     }
 
     fn handle_no_result_yet(&mut self, input: KeyEvent) {
-        match input.code {
-            KeyCode::Right => {
+        match input {
+            x if keybinds::is_right(x) => {
                 // select the next suggestion
                 if let Some(selected) = self.puzzle.selected_suggestion {
                     let current_index = self.puzzle.suggestions.iter().position(|&x| x == selected);
@@ -440,7 +441,7 @@ impl BinaryNumbersGame {
                     self.puzzle.selected_suggestion = Some(self.puzzle.suggestions[0]);
                 }
             }
-            KeyCode::Left => {
+            x if keybinds::is_left(x)  => {
                 // select the previous suggestion
                 if let Some(selected) = self.puzzle.selected_suggestion {
                     let current_index = self.puzzle.suggestions.iter().position(|&x| x == selected);
@@ -454,7 +455,7 @@ impl BinaryNumbersGame {
                     }
                 }
             }
-            KeyCode::Enter => {
+            x if keybinds::is_select(x) => {
                 if let Some(selected) = self.puzzle.selected_suggestion {
                     if self.puzzle.is_correct_guess(selected) {
                         self.puzzle.guess_result = Some(GuessResult::Correct);
@@ -464,7 +465,7 @@ impl BinaryNumbersGame {
                     self.finalize_round();
                 }
             }
-            KeyCode::Char('s') | KeyCode::Char('S') => {
+            KeyEvent { code: KeyCode::Char('s' | 'S'), .. }  => {
                 // Skip puzzle counts as timeout
                 self.puzzle.guess_result = Some(GuessResult::Timeout);
                 self.finalize_round();
@@ -473,9 +474,9 @@ impl BinaryNumbersGame {
         }
     }
 
-    fn handle_result_available(&mut self, input: KeyEvent) {
-        match input.code {
-            KeyCode::Enter => {
+    fn handle_result_available(&mut self, key: KeyEvent) {
+        match key {
+            x if keybinds::is_select(x) => {
                 match self.game_state {
                     GameState::PendingGameOver => {
                         // reveal summary
@@ -491,7 +492,7 @@ impl BinaryNumbersGame {
                     GameState::Active => { /* shouldn't be here */ }
                 }
             }
-            KeyCode::Esc => self.exit_intended = true,
+            x if keybinds::is_exit(x) => self.exit_intended = true,
             _ => {}
         }
     }

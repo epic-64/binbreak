@@ -1,4 +1,5 @@
 use crate::binary_numbers::{BinaryNumbersGame, Bits};
+use crate::keybinds;
 use crate::main_screen_widget::MainScreenWidget;
 use crate::utils::{AsciiArtWidget, AsciiCells};
 use crossterm::event;
@@ -37,16 +38,16 @@ enum AppState {
 }
 
 fn handle_start_input(state: &mut StartMenuState, key: KeyEvent) -> Option<AppState> {
-    match key.code {
-        KeyCode::Up => state.select_previous(),
-        KeyCode::Down => state.select_next(),
-        KeyCode::Enter => {
+    match key {
+        x if keybinds::is_up(x) => state.select_previous(),
+        x if keybinds::is_down(x) => state.select_next(),
+        x if keybinds::is_select(x) => {
             let bits = state.selected_bits();
             // Store the current selection before entering the game
             set_last_selected_index(state.selected_index());
             return Some(AppState::Playing(BinaryNumbersGame::new(bits)));
         }
-        KeyCode::Esc => return Some(AppState::Exit),
+        x if keybinds::is_exit(x) => return Some(AppState::Exit),
         _ => {}
     }
     None
@@ -132,7 +133,7 @@ fn handle_crossterm_events(app_state: &mut AppState) -> color_eyre::Result<()> {
     {
         match key.code {
             // global exit via Ctrl+C
-            KeyCode::Char('c') | KeyCode::Char('C')
+            KeyCode::Char('c' | 'C')
                 if key.modifiers == KeyModifiers::CONTROL =>
             {
                 *app_state = AppState::Exit;
