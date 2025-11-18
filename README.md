@@ -1,7 +1,5 @@
 ![sc1.png](docs/sc1.png)
 
-<video src="docs/demo.mp4" alt="binbreak demo">
-
 Guess the correct number (from binary to decimal) before time runs out!
 ![sc3.png](docs/sc3.png)
 
