@@ -181,14 +181,14 @@ pub fn run_app(terminal: &mut ratatui::DefaultTerminal) -> color_eyre::Result<()
         })?;
 
         // Clear needs_render flag after frame is rendered
+        // State transitions will set this flag again as needed, in performance mode
         if let AppState::Playing(game) = &mut app_state {
             game.clear_needs_render();
         }
 
         // handle input
         if let AppState::Playing(game) = &app_state {
-            let fps_mode = get_fps_mode(game);
-            if fps_mode == FpsMode::RealTime {
+            if get_fps_mode(game) == FpsMode::RealTime {
                 let poll_timeout = cmp::min(dt, target_frame_duration);
                 if event::poll(poll_timeout)? {
                     handle_crossterm_events(&mut app_state)?;
