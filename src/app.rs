@@ -12,6 +12,17 @@ use std::collections::HashMap;
 use std::thread;
 use std::time::Instant;
 use indoc::indoc;
+use std::sync::atomic::{AtomicUsize, Ordering};
+
+static LAST_SELECTED_INDEX: AtomicUsize = AtomicUsize::new(4);
+
+fn get_last_selected_index() -> usize {
+    LAST_SELECTED_INDEX.load(Ordering::Relaxed)
+}
+
+fn set_last_selected_index(index: usize) {
+    LAST_SELECTED_INDEX.store(index, Ordering::Relaxed);
+}
 
 #[derive(Copy, Clone, PartialEq, Debug)]
 enum FpsMode {
@@ -31,6 +42,8 @@ fn handle_start_input(state: &mut StartMenuState, key: KeyEvent) -> Option<AppSt
         KeyCode::Down => state.select_next(),
         KeyCode::Enter => {
             let bits = state.selected_bits();
+            // Store the current selection before entering the game
+            set_last_selected_index(state.selected_index());
             return Some(AppState::Playing(BinaryNumbersGame::new(bits)));
         }
         KeyCode::Esc => return Some(AppState::Exit),
@@ -267,6 +280,10 @@ struct StartMenuState {
 
 impl StartMenuState {
     fn new() -> Self {
+        Self::with_selected(get_last_selected_index())
+    }
+
+    fn with_selected(selected_index: usize) -> Self {
         let items = vec![
             ("easy       (4 bits)".to_string(), Bits::Four),
             ("easy+16    (4 bits*16)".to_string(), Bits::FourShift4),
@@ -276,11 +293,13 @@ impl StartMenuState {
             ("master     (12 bits)".to_string(), Bits::Twelve),
             ("insane     (16 bits)".to_string(), Bits::Sixteen),
         ];
+
         Self {
             items,
-            list_state: ListState::default().with_selected(Some(4)),
-        } // default to normal (8 bits)
+            list_state: ListState::default().with_selected(Some(selected_index)),
+        }
     }
+
     fn selected_index(&self) -> usize {
         self.list_state.selected().unwrap_or(0)
     }
