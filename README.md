@@ -37,12 +37,13 @@ There is one file for linux and one for windows (.exe).
 - press Enter to confirm choices
 - press Esc to exit a game mode or the game. CTRL+C also works to exit the game.
 
-## Retro aesthetics
-For the best experience, I recommend using Cool Retro Terminal on Linux, or Windows Terminal in Retro mode.  
-But the game should run fine in any terminal.
+## Recommended terminals
+The game should run fine in any terminal. If you want retro CRT effects, here are some recommendations:
+- Windows: Windows Terminal (enable experimental "retro mode")
+- Linux: Rio (with CRT shader), Cool Retro Term
 
 ## Build/Run from source
-You be inclined to not run binaries from the internet, and want to build from source instead.
+You may be inclined to not run binaries from the internet, and want to build from source instead.
 
 - download the source code
 - make sure you have Rust and Cargo installed, see [rustup.rs](https://rustup.rs/)
