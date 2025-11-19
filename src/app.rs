@@ -7,10 +7,28 @@ use ratatui::buffer::Buffer;
 use ratatui::layout::Rect;
 use ratatui::prelude::{Color, Modifier, Span, Style, Widget};
 use ratatui::widgets::{List, ListItem, ListState};
+use std::cmp;
 use std::collections::HashMap;
 use std::thread;
 use std::time::Instant;
 use indoc::indoc;
+use std::sync::atomic::{AtomicUsize, Ordering};
+
+static LAST_SELECTED_INDEX: AtomicUsize = AtomicUsize::new(4);
+
+fn get_last_selected_index() -> usize {
+    LAST_SELECTED_INDEX.load(Ordering::Relaxed)
+}
+
+fn set_last_selected_index(index: usize) {
+    LAST_SELECTED_INDEX.store(index, Ordering::Relaxed);
+}
+
+#[derive(Copy, Clone, PartialEq, Debug)]
+enum FpsMode {
+    RealTime,    // 30 FPS with polling
+    Performance, // Block until input for minimal CPU
+}
 
 enum AppState {
     Start(StartMenuState),
@@ -24,6 +42,8 @@ fn handle_start_input(state: &mut StartMenuState, key: KeyEvent) -> Option<AppSt
         KeyCode::Down => state.select_next(),
         KeyCode::Enter => {
             let bits = state.selected_bits();
+            // Store the current selection before entering the game
+            set_last_selected_index(state.selected_index());
             return Some(AppState::Playing(BinaryNumbersGame::new(bits)));
         }
         KeyCode::Esc => return Some(AppState::Exit),
@@ -106,6 +126,48 @@ fn render_start_screen(state: &mut StartMenuState, area: Rect, buf: &mut Buffer)
     ratatui::widgets::StatefulWidget::render(list, list_area, buf, &mut state.list_state);
 }
 
+fn handle_crossterm_events(app_state: &mut AppState) -> color_eyre::Result<()> {
+    if let Event::Key(key) = event::read()? {
+        if key.kind == KeyEventKind::Press {
+            match key.code {
+                // global exit via Ctrl+C
+                KeyCode::Char('c') | KeyCode::Char('C')
+                    if key.modifiers == KeyModifiers::CONTROL =>
+                {
+                    *app_state = AppState::Exit;
+                }
+
+                // state-specific input handling
+                _ => {
+                    *app_state = match std::mem::replace(app_state, AppState::Exit) {
+                        AppState::Start(mut menu) => {
+                            handle_start_input(&mut menu, key)
+                                .unwrap_or(AppState::Start(menu))
+                        }
+                        AppState::Playing(mut game) => {
+                            game.handle_input(key);
+                            AppState::Playing(game)
+                        }
+                        AppState::Exit => AppState::Exit,
+                    }
+                }
+            }
+        }
+    }
+    Ok(())
+}
+
+/// Determine the appropriate FPS mode based on the current game state
+fn get_fps_mode(game: &BinaryNumbersGame) -> FpsMode {
+    if game.is_active() {
+        FpsMode::RealTime  // Timer running, needs continuous updates
+    } else if game.needs_render() {
+        FpsMode::RealTime  // One frame after state transition
+    } else {
+        FpsMode::Performance  // All other cases, block for minimal CPU
+    }
+}
+
 pub fn run_app(terminal: &mut ratatui::DefaultTerminal) -> color_eyre::Result<()> {
     let mut app_state = AppState::Start(StartMenuState::new());
     let mut last_frame_time = Instant::now();
@@ -116,13 +178,7 @@ pub fn run_app(terminal: &mut ratatui::DefaultTerminal) -> color_eyre::Result<()
         let dt = now - last_frame_time;
         last_frame_time = now;
 
-        terminal.draw(|f| match &mut app_state {
-            AppState::Start(menu) => render_start_screen(menu, f.area(), f.buffer_mut()),
-            AppState::Playing(game) => f.render_widget(&mut *game, f.area()),
-            AppState::Exit => {}
-        })?;
-
-        // Advance game if playing
+        // Advance game BEFORE drawing so stats are updated
         if let AppState::Playing(game) = &mut app_state {
             game.run(dt.as_secs_f64());
             if game.is_exit_intended() {
@@ -131,34 +187,33 @@ pub fn run_app(terminal: &mut ratatui::DefaultTerminal) -> color_eyre::Result<()
             }
         }
 
-        // handle input
-        let poll_timeout = std::cmp::min(dt, target_frame_duration);
-        if event::poll(poll_timeout)? {
-            if let Event::Key(key) = event::read()? {
-                if key.kind == KeyEventKind::Press {
-                    match key.code {
-                        // global exit via Ctrl+C
-                        KeyCode::Char('c') | KeyCode::Char('C')
-                            if key.modifiers == KeyModifiers::CONTROL =>
-                        {
-                            app_state = AppState::Exit;
-                        }
+        terminal.draw(|f| match &mut app_state {
+            AppState::Start(menu) => render_start_screen(menu, f.area(), f.buffer_mut()),
+            AppState::Playing(game) => f.render_widget(&mut *game, f.area()),
+            AppState::Exit => {}
+        })?;
 
-                        // state-specific input handling
-                        _ => {
-                            app_state = match app_state {
-                                AppState::Start(mut menu) => handle_start_input(&mut menu, key)
-                                    .unwrap_or(AppState::Start(menu)),
-                                AppState::Playing(mut game) => {
-                                    game.handle_input(key);
-                                    AppState::Playing(game)
-                                }
-                                AppState::Exit => AppState::Exit,
-                            }
-                        }
-                    }
+        // Clear needs_render flag after frame is rendered
+        // State transitions will set this flag again as needed, in performance mode
+        if let AppState::Playing(game) = &mut app_state {
+            game.clear_needs_render();
+        }
+
+        // handle input
+        if let AppState::Playing(game) = &app_state {
+            if get_fps_mode(game) == FpsMode::RealTime {
+                let poll_timeout = cmp::min(dt, target_frame_duration);
+                if event::poll(poll_timeout)? {
+                    handle_crossterm_events(&mut app_state)?;
                 }
+            } else {
+                // performance mode: block thread until an input event occurs
+                handle_crossterm_events(&mut app_state)?;
             }
+        } else {
+            // For non-playing states (e.g., start menu), use performance mode
+            // to block until input and minimize CPU usage
+            handle_crossterm_events(&mut app_state)?;
         }
 
         // cap frame rate
@@ -225,6 +280,10 @@ struct StartMenuState {
 
 impl StartMenuState {
     fn new() -> Self {
+        Self::with_selected(get_last_selected_index())
+    }
+
+    fn with_selected(selected_index: usize) -> Self {
         let items = vec![
             ("easy       (4 bits)".to_string(), Bits::Four),
             ("easy+16    (4 bits*16)".to_string(), Bits::FourShift4),
@@ -234,11 +293,13 @@ impl StartMenuState {
             ("master     (12 bits)".to_string(), Bits::Twelve),
             ("insane     (16 bits)".to_string(), Bits::Sixteen),
         ];
+
         Self {
             items,
-            list_state: ListState::default().with_selected(Some(4)),
-        } // default to normal (8 bits)
+            list_state: ListState::default().with_selected(Some(selected_index)),
+        }
     }
+
     fn selected_index(&self) -> usize {
         self.list_state.selected().unwrap_or(0)
     }

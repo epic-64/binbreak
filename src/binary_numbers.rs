@@ -129,7 +129,12 @@ impl WidgetRef for BinaryNumbersPuzzle {
             .render(inner, buf);
 
         let binary_string = self.current_to_binary_string();
-        let scale_suffix = match self.bits { Bits::FourShift4 => Some(" x16"), Bits::FourShift8 => Some(" x256"), Bits::FourShift12 => Some(" x4096"), _ => None };
+        let scale_suffix = match self.bits {
+            Bits::FourShift4 => Some(" x16"),
+            Bits::FourShift8 => Some(" x256"),
+            Bits::FourShift12 => Some(" x4096"),
+            _ => None
+        };
         let mut spans = vec![Span::raw(binary_string.clone())];
         if let Some(sfx) = scale_suffix { spans.push(Span::styled(sfx, Style::default().fg(Color::DarkGray))); }
         let total_width = spans.iter().map(|s| s.width()).sum::<usize>() as u16;
@@ -272,7 +277,9 @@ pub struct BinaryNumbersGame {
     high_scores: HighScores,
     prev_high_score_for_display: u32,
     new_high_score_reached: bool,
+    needs_render: bool,  // Flag to render one frame after state transition
 }
+
 
 #[derive(Copy, Clone, PartialEq, Debug)]
 enum GameState { Active, Result, PendingGameOver, GameOver }
@@ -295,7 +302,7 @@ impl BinaryNumbersGame {
     pub fn new_with_max_lives(bits: Bits, max_lives: u32) -> Self {
         let hs = HighScores::load();
         let starting_prev = hs.get(bits.high_score_key());
-        Self {
+        let mut game = Self {
             bits: bits.clone(),
             puzzle: Self::init_puzzle(bits.clone(), 0),
             exit_intended: false,
@@ -310,11 +317,30 @@ impl BinaryNumbersGame {
             high_scores: hs,
             prev_high_score_for_display: starting_prev,
             new_high_score_reached: false,
-        }
+            needs_render: true,  // Need to render initial state
+        };
+        // Initialize stats snapshot immediately so stats display on first render
+        game.refresh_stats_snapshot();
+        game
     }
 
     pub fn init_puzzle(bits: Bits, streak: u32) -> BinaryNumbersPuzzle {
         BinaryNumbersPuzzle::new(bits, streak)
+    }
+
+    /// Check if the game is in Active state (timer running)
+    pub fn is_active(&self) -> bool {
+        self.game_state == GameState::Active
+    }
+
+    /// Check if we need to render one frame (e.g., after state transition)
+    pub fn needs_render(&self) -> bool {
+        self.needs_render
+    }
+
+    /// Clear the needs_render flag after rendering
+    pub fn clear_needs_render(&mut self) {
+        self.needs_render = false;
     }
 }
 
@@ -358,8 +384,10 @@ impl BinaryNumbersGame {
             // set state after round resolution
             if self.lives == 0 {
                 self.game_state = GameState::PendingGameOver; // defer summary until Enter
+                self.needs_render = true;  // Need to render result before blocking
             } else {
                 self.game_state = GameState::Result;
+                self.needs_render = true;  // Need to render result before blocking
             }
             self.puzzle_resolved = true;
         }
@@ -367,6 +395,7 @@ impl BinaryNumbersGame {
 
     pub fn handle_game_input(&mut self, input: KeyEvent) {
         if input.code == KeyCode::Esc { self.exit_intended = true; return; }
+
         if self.game_state == GameState::GameOver { self.handle_game_over_input(input); return; }
         match self.puzzle.guess_result {
             None => self.handle_no_result_yet(input),
@@ -513,6 +542,7 @@ pub struct BinaryNumbersPuzzle {
     guess_result: Option<GuessResult>,
     last_points_awarded: u32,
     stats_snapshot: Option<StatsSnapshot>,
+    skip_first_dt: bool, // Skip first dt to prevent timer jump when starting new puzzle
 }
 
 impl BinaryNumbersPuzzle {
@@ -556,6 +586,7 @@ impl BinaryNumbersPuzzle {
             guess_result,
             last_points_awarded,
             stats_snapshot: None,
+            skip_first_dt: true, // Skip first dt to prevent timer jump
         }
     }
 
@@ -576,6 +607,12 @@ impl BinaryNumbersPuzzle {
     pub fn run(&mut self, dt: f64) {
         if self.guess_result.is_some() {
             // If a guess has been made, we don't need to run the game logic anymore.
+            return;
+        }
+
+        // Skip first dt to prevent timer jump when starting new puzzle
+        if self.skip_first_dt {
+            self.skip_first_dt = false;
             return;
         }
 
@@ -724,6 +761,11 @@ mod tests {
     fn puzzle_timeout_sets_guess_result() {
         let mut p = BinaryNumbersPuzzle::new(Bits::Four, 0);
         p.time_left = 0.5;
+        // First run() skips dt due to skip_first_dt flag
+        // The reason for this is to prevent timer jump when starting a new puzzle
+        p.run(1.0);
+        assert_eq!(p.guess_result, None, "First run should skip dt");
+        // Second run() actually applies the dt and triggers timeout
         p.run(1.0); // exceed remaining time
         assert_eq!(p.guess_result, Some(GuessResult::Timeout));
     }
