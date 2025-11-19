@@ -33,9 +33,9 @@ There is one file for linux and one for windows (.exe).
 - run the game: `./binbreak-linux`
 
 ## Controls
-- use the arrow keys for navigation
+- use the arrow or vim keys for navigation
 - press Enter to confirm choices
-- press Esc to exit a game mode or the game. CTRL+C also works to exit the game.
+- press Esc or Q to exit a game mode or the game. CTRL+C also works to exit the game.
 
 ## Recommended terminals
 The game should run fine in any terminal. If you want retro CRT effects, here are some recommendations:
