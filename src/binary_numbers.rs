@@ -1,3 +1,4 @@
+use crate::keybinds;
 use crate::main_screen_widget::{MainScreenWidget, WidgetRef};
 use crate::utils::{center, When};
 use crossterm::event::{KeyCode, KeyEvent};
@@ -168,7 +169,7 @@ impl WidgetRef for BinaryNumbersPuzzle {
             Block::bordered().border_type(border_type).fg(border_color).render(area, buf);
 
             let suggestion_str = format!("{suggestion}");
-            Paragraph::new(format!("{}", suggestion_str))
+            Paragraph::new(suggestion_str.to_string())
                 .white()
                 .when(show_correct_number && is_correct_number, |p| p.light_green().underlined())
                 .alignment(Center)
@@ -241,7 +242,7 @@ impl WidgetRef for BinaryNumbersPuzzle {
 
         Block::bordered().dark_gray().render(result_area, buf);
 
-        let instruction_spans: Vec<Span> = vec![
+        let instruction_spans: Vec<Span> = [
             hotkey_span("Left Right", "select  "),
             hotkey_span("Enter", "confirm  "),
             hotkey_span("S", "skip  "),
@@ -293,7 +294,7 @@ impl MainScreenWidget for BinaryNumbersGame {
         self.refresh_stats_snapshot();
     }
 
-    fn handle_input(&mut self, input: KeyEvent) -> () { self.handle_game_input(input); }
+    fn handle_input(&mut self, input: KeyEvent) { self.handle_game_input(input); }
     fn is_exit_intended(&self) -> bool { self.exit_intended }
 }
 
@@ -394,7 +395,7 @@ impl BinaryNumbersGame {
     }
 
     pub fn handle_game_input(&mut self, input: KeyEvent) {
-        if input.code == KeyCode::Esc { self.exit_intended = true; return; }
+        if keybinds::is_exit(input) { self.exit_intended = true; return; }
 
         if self.game_state == GameState::GameOver { self.handle_game_over_input(input); return; }
         match self.puzzle.guess_result {
@@ -403,10 +404,10 @@ impl BinaryNumbersGame {
         }
     }
 
-    fn handle_game_over_input(&mut self, input: KeyEvent) {
-        match input.code {
-            KeyCode::Enter => { self.reset_game_state(); }
-            KeyCode::Esc => { self.exit_intended = true; }
+    fn handle_game_over_input(&mut self, key: KeyEvent) {
+        match key {
+            x if keybinds::is_select(x) => { self.reset_game_state(); }
+            x if keybinds::is_exit(x) => { self.exit_intended = true; }
             _ => {}
         }
     }
@@ -426,8 +427,8 @@ impl BinaryNumbersGame {
     }
 
     fn handle_no_result_yet(&mut self, input: KeyEvent) {
-        match input.code {
-            KeyCode::Right => {
+        match input {
+            x if keybinds::is_right(x) => {
                 // select the next suggestion
                 if let Some(selected) = self.puzzle.selected_suggestion {
                     let current_index = self.puzzle.suggestions.iter().position(|&x| x == selected);
@@ -440,7 +441,7 @@ impl BinaryNumbersGame {
                     self.puzzle.selected_suggestion = Some(self.puzzle.suggestions[0]);
                 }
             }
-            KeyCode::Left => {
+            x if keybinds::is_left(x)  => {
                 // select the previous suggestion
                 if let Some(selected) = self.puzzle.selected_suggestion {
                     let current_index = self.puzzle.suggestions.iter().position(|&x| x == selected);
@@ -454,7 +455,7 @@ impl BinaryNumbersGame {
                     }
                 }
             }
-            KeyCode::Enter => {
+            x if keybinds::is_select(x) => {
                 if let Some(selected) = self.puzzle.selected_suggestion {
                     if self.puzzle.is_correct_guess(selected) {
                         self.puzzle.guess_result = Some(GuessResult::Correct);
@@ -464,7 +465,7 @@ impl BinaryNumbersGame {
                     self.finalize_round();
                 }
             }
-            KeyCode::Char('s') | KeyCode::Char('S') => {
+            KeyEvent { code: KeyCode::Char('s' | 'S'), .. }  => {
                 // Skip puzzle counts as timeout
                 self.puzzle.guess_result = Some(GuessResult::Timeout);
                 self.finalize_round();
@@ -473,9 +474,9 @@ impl BinaryNumbersGame {
         }
     }
 
-    fn handle_result_available(&mut self, input: KeyEvent) {
-        match input.code {
-            KeyCode::Enter => {
+    fn handle_result_available(&mut self, key: KeyEvent) {
+        match key {
+            x if keybinds::is_select(x) => {
                 match self.game_state {
                     GameState::PendingGameOver => {
                         // reveal summary
@@ -491,7 +492,7 @@ impl BinaryNumbersGame {
                     GameState::Active => { /* shouldn't be here */ }
                 }
             }
-            KeyCode::Esc => self.exit_intended = true,
+            x if keybinds::is_exit(x) => self.exit_intended = true,
             _ => {}
         }
     }
@@ -632,8 +633,7 @@ impl Widget for &mut BinaryNumbersGame {
 
 // Simple ASCII gauge renderer to avoid variable glyph heights from Unicode block elements
 fn render_ascii_gauge(area: Rect, buf: &mut Buffer, ratio: f64, color: Color) {
-    let clamped = if ratio < 0.0 { 0.0 } else if ratio > 1.0 { 1.0 } else { ratio };
-    let fill_width = ((area.width as f64) * clamped).round().min(area.width as f64) as u16;
+    let fill_width = ((area.width as f64) * ratio.clamp(0.0, 1.0)).round().min(area.width as f64) as u16;
     if area.height == 0 { return; }
     for x in 0..area.width {
         let filled = x < fill_width;
@@ -664,10 +664,11 @@ impl HighScores {
             let mut contents = String::new();
             if file.read_to_string(&mut contents).is_ok() {
                 for line in contents.lines() {
-                    if let Some((k,v)) = line.split_once('=') {
-                        if let (Ok(bits), Ok(score)) = (k.trim().parse::<u32>(), v.trim().parse::<u32>()) {
-                            hs.scores.insert(bits, score);
-                        }
+                    if let Some((k,v)) = line.split_once('=')
+                        && let Ok(bits) = k.trim().parse::<u32>()
+                        && let Ok(score) = v.trim().parse::<u32>()
+                    {
+                        hs.scores.insert(bits, score);
                     }
                 }
             }

@@ -1,5 +1,6 @@
 mod app;
 mod binary_numbers;
+mod keybinds;
 mod main_screen_widget;
 mod utils;
 
