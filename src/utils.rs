@@ -89,8 +89,8 @@ impl Widget for AsciiArtWidget {
 
 pub fn center(area: Rect, horizontal: Constraint) -> Rect {
     let [area] = Layout::horizontal([horizontal]).flex(Flex::Center).areas(area);
-    let area = vertically_center(area);
-    area
+    
+    vertically_center(area)
 }
 
 pub fn vertically_center(area: Rect) -> Rect {
