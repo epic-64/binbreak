@@ -60,18 +60,18 @@ impl WidgetRef for BinaryNumbersPuzzle {
 
         self.render_stats_area(stats_area, buf);
 
-        if let Some(stats) = &self.stats_snapshot {
-            if stats.game_state == GameState::GameOver {
-                render_game_over(
-                    stats,
-                    current_number_area,
-                    suggestions_area,
-                    progress_bar_area,
-                    result_area,
-                    buf,
-                );
-                return;
-            }
+        if let Some(stats) = &self.stats_snapshot
+            && stats.game_state == GameState::GameOver
+        {
+            render_game_over(
+                stats,
+                current_number_area,
+                suggestions_area,
+                progress_bar_area,
+                result_area,
+                buf,
+            );
+            return;
         }
 
         self.render_current_number(current_number_area, buf);
