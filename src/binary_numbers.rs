@@ -162,7 +162,6 @@ impl WidgetRef for BinaryNumbersPuzzle {
             }
         }
 
-        // Existing puzzle rendering now uses updated area references
         let [inner] = Layout::horizontal([Constraint::Percentage(100)])
             .flex(Flex::Center)
             .areas(current_number_area);
@@ -272,7 +271,6 @@ impl WidgetRef for BinaryNumbersPuzzle {
             Color::Red
         };
 
-        // Replace previous split layout: keep everything inside a single bordered block and remove percent label
         let time_block = Block::bordered()
             .dark_gray()
             .title("Time Remaining")
@@ -281,7 +279,6 @@ impl WidgetRef for BinaryNumbersPuzzle {
         let inner_time = time_block.inner(right);
         time_block.render(right, buf);
 
-        // Vertical layout inside the time block interior: gauge line + text line (2 lines total)
         let [gauge_line, time_line] =
             Layout::vertical([Constraint::Length(1), Constraint::Length(1)]).areas(inner_time);
 
