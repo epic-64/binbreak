@@ -399,7 +399,6 @@ impl BinaryNumbersGame {
         BinaryNumbersPuzzle::new(bits, streak)
     }
 
-    /// Check if the game is in Active state (timer running)
     pub fn is_active(&self) -> bool {
         self.game_state == GameState::Active
     }
