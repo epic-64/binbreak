@@ -1,3 +1,4 @@
+use std::fmt::Write as _;
 use crate::keybinds;
 use crate::main_screen_widget::{MainScreenWidget, WidgetRef};
 use crate::utils::{When, center};
@@ -96,6 +97,7 @@ impl WidgetRef for BinaryNumbersPuzzle {
                 Span::styled(format!("Lives: {}  ", stats.hearts), Style::default().fg(Color::Red)),
             ]);
 
+            #[allow(clippy::cast_possible_truncation)]
             let widest = line1.width().max(line2.width()) as u16;
             Paragraph::new(vec![line1, line2])
                 .alignment(Center)
@@ -134,6 +136,7 @@ impl WidgetRef for BinaryNumbersPuzzle {
         if let Some(sfx) = scale_suffix {
             spans.push(Span::styled(sfx, Style::default().fg(Color::DarkGray)));
         }
+        #[allow(clippy::cast_possible_truncation)]
         let total_width = spans.iter().map(ratatui::prelude::Span::width).sum::<usize>() as u16;
         let lines: Vec<Line> = vec![Line::from(spans)];
         Paragraph::new(lines)
@@ -171,6 +174,8 @@ impl WidgetRef for BinaryNumbersPuzzle {
             Block::bordered().border_type(border_type).fg(border_color).render(area, buf);
 
             let suggestion_str = format!("{suggestion}");
+
+            #[allow(clippy::cast_possible_truncation)]
             Paragraph::new(suggestion_str.to_string())
                 .white()
                 .when(show_correct_number && is_correct_number, |p| p.light_green().underlined())
@@ -207,7 +212,8 @@ impl WidgetRef for BinaryNumbersPuzzle {
                 Line::from(format!("{icon} {line1_text}").fg(color)),
                 Line::from(gained_line.fg(color)),
             ];
-            let widest = text.iter().map(ratatui::prelude::Line::width).max().unwrap_or(0) as u16;
+            #[allow(clippy::cast_possible_truncation)]
+            let widest = text.iter().map(Line::width).max().unwrap_or(0) as u16;
             Paragraph::new(text)
                 .alignment(Center)
                 .style(Style::default().fg(color))
@@ -780,11 +786,15 @@ impl Widget for &mut BinaryNumbersGame {
 
 // Simple ASCII gauge renderer to avoid variable glyph heights from Unicode block elements
 fn render_ascii_gauge(area: Rect, buf: &mut Buffer, ratio: f64, color: Color) {
+    #[allow(clippy::cast_sign_loss)]
+    #[allow(clippy::cast_possible_truncation)]
     let fill_width =
         (f64::from(area.width) * ratio.clamp(0.0, 1.0)).round().min(f64::from(area.width)) as u16;
+
     if area.height == 0 {
         return;
     }
+
     for x in 0..area.width {
         let filled = x < fill_width;
         let symbol = if filled { "=" } else { " " };
@@ -834,7 +844,7 @@ impl HighScores {
         let mut data = String::new();
         for key in [4u32, 44u32, 48u32, 412u32, 8u32, 12u32, 16u32] {
             let val = self.get(key);
-            data.push_str(&format!("{key}={val}\n"));
+            let _ = writeln!(data, "{key}={val}");
         }
         let mut file = File::create(Self::FILE)?;
         file.write_all(data.as_bytes())

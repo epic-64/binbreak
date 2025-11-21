@@ -38,6 +38,7 @@ module_name_repetitions = "allow"
 must_use_candidate = "allow"
 missing_errors_doc = "allow"
 missing_panics_doc = "allow"
+match_same_arms = "allow"
 
 # Complexity warnings (thresholds in clippy.toml)
 cognitive_complexity = "warn"

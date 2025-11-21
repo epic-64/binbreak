@@ -62,9 +62,11 @@ fn render_start_screen(state: &mut StartMenuState, area: Rect, buf: &mut Buffer)
 
     let selected = state.selected_index();
     let upper_labels: Vec<String> = state.items.iter().map(|(l, _)| l.to_uppercase()).collect();
+    #[allow(clippy::cast_possible_truncation)]
     let max_len = upper_labels.iter().map(|s| s.len() as u16).max().unwrap_or(0);
 
     let list_width = 2 + max_len; // marker + space + label
+    #[allow(clippy::cast_possible_truncation)]
     let list_height = upper_labels.len() as u16;
 
     // Vertical spacing between ASCII art and list
@@ -245,7 +247,7 @@ fn ascii_art_cells() -> AsciiCells {
     ]);
 
     let default_color = Color::LightBlue;
-    AsciiCells::from(art.to_string(), colors.to_string(), &color_map, default_color)
+    AsciiCells::from(art, colors, &color_map, default_color)
 }
 
 // Start menu state

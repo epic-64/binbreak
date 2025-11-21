@@ -9,9 +9,10 @@ pub struct AsciiCell {
     pub color: Color,
 }
 
+#[allow(clippy::cast_possible_truncation)]
 pub fn parse_ascii_art(
-    art: String,
-    color_map_str: String,
+    art: &str,
+    color_map_str: &str,
     color_map: &HashMap<char, Color>,
     default_color: Color,
 ) -> Vec<AsciiCell> {
@@ -41,8 +42,8 @@ pub struct AsciiCells {
 
 impl AsciiCells {
     pub fn from(
-        art: String,
-        color_map_str: String,
+        art: &str,
+        color_map_str: &str,
         color_map: &HashMap<char, Color>,
         default_color: Color,
     ) -> Self {
@@ -74,6 +75,7 @@ impl Widget for AsciiArtWidget {
             let position = Position::new(pixel.x + area.x, pixel.y + area.y);
 
             if area.contains(position) {
+                #[allow(clippy::expect_used)]
                 buf.cell_mut(position)
                     .expect("Failed to get cell at position")
                     .set_char(pixel.ch)
