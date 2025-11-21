@@ -73,6 +73,6 @@ cargo fmt
 ```
 
 ## License
-MIT license (LICENSE-MIT or http://opensource.org/licenses/MIT)
+MIT license ([LICENSE](LICENSE) or http://opensource.org/licenses/MIT)
 
 [![Built With Ratatui](https://ratatui.rs/built-with-ratatui/badge.svg)](https://ratatui.rs/)
