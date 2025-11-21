@@ -192,12 +192,6 @@ pub fn run_app(terminal: &mut ratatui::DefaultTerminal) -> color_eyre::Result<()
             AppState::Exit => {}
         })?;
 
-        // Clear needs_render flag after frame is rendered
-        // State transitions will set this flag again as needed, in performance mode
-        if let AppState::Playing(game) = &mut app_state {
-            game.clear_needs_render();
-        }
-
         // handle input
         if let AppState::Playing(game) = &app_state {
             if get_fps_mode(game) == FpsMode::RealTime {

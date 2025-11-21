@@ -278,7 +278,6 @@ pub struct BinaryNumbersGame {
     high_scores: HighScores,
     prev_high_score_for_display: u32,
     new_high_score_reached: bool,
-    needs_render: bool,  // Flag to render one frame after state transition
 }
 
 
@@ -318,7 +317,6 @@ impl BinaryNumbersGame {
             high_scores: hs,
             prev_high_score_for_display: starting_prev,
             new_high_score_reached: false,
-            needs_render: true,  // Need to render initial state
         };
         // Initialize stats snapshot immediately so stats display on first render
         game.refresh_stats_snapshot();
@@ -332,11 +330,6 @@ impl BinaryNumbersGame {
     /// Check if the game is in Active state (timer running)
     pub fn is_active(&self) -> bool {
         self.game_state == GameState::Active
-    }
-
-    /// Clear the needs_render flag after rendering
-    pub fn clear_needs_render(&mut self) {
-        self.needs_render = false;
     }
 }
 
@@ -380,10 +373,8 @@ impl BinaryNumbersGame {
             // set state after round resolution
             if self.lives == 0 {
                 self.game_state = GameState::PendingGameOver; // defer summary until Enter
-                self.needs_render = true;  // Need to render result before blocking
             } else {
                 self.game_state = GameState::Result;
-                self.needs_render = true;  // Need to render result before blocking
             }
             self.puzzle_resolved = true;
         }
