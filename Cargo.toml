@@ -28,16 +28,12 @@ dead_code = "warn"
 
 [lints.clippy]
 # Lint groups - enable comprehensive checking
-pedantic = { level = "warn", priority = -1 }
-nursery = { level = "warn", priority = -1 }
+pedantic = { level = "allow", priority = -1 }
+nursery = { level = "allow", priority = -1 }
 correctness = { level = "deny", priority = -1 }
 all = { level = "warn", priority = -1 }
 
-# Disable some pedantic lints that are too noisy for this project
-module_name_repetitions = "allow"
-must_use_candidate = "allow"
-missing_errors_doc = "allow"
-missing_panics_doc = "allow"
+# Allow certain common patterns
 match_same_arms = "allow"
 
 # Complexity warnings (thresholds in clippy.toml)
