@@ -101,63 +101,15 @@ impl WidgetRef for BinaryNumbersPuzzle {
                 .alignment(Center)
                 .render(center(stats_area, Constraint::Length(widest)), buf);
 
-            // If game over, render game over block occupying the remaining area and return early
             if stats.game_state == GameState::GameOver {
-                let combined_rect = Rect {
-                    x: current_number_area.x,
-                    y: current_number_area.y,
-                    width: current_number_area.width,
-                    height: current_number_area.height
-                        + suggestions_area.height
-                        + progress_bar_area.height
-                        + result_area.height,
-                };
-                let block = Block::bordered()
-                    .title("Game Over")
-                    .title_alignment(Center)
-                    .border_type(Double)
-                    .title_style(Style::default().fg(Color::Red));
-                block.render(combined_rect, buf);
-                let mut lines = vec![
-                    Line::from(Span::styled(
-                        format!("Final Score: {}", stats.score),
-                        Style::default().fg(Color::Green),
-                    )),
-                    Line::from(Span::styled(
-                        format!("Previous High: {}", stats.prev_high_score),
-                        Style::default().fg(Color::Yellow),
-                    )),
-                    Line::from(Span::styled(
-                        format!("Rounds Played: {}", stats.rounds),
-                        Style::default().fg(Color::Magenta),
-                    )),
-                    Line::from(Span::styled(
-                        format!("Max Streak: {}", stats.max_streak),
-                        Style::default().fg(Color::Cyan),
-                    )),
-                ];
-                if stats.new_high_score {
-                    lines.insert(
-                        1,
-                        Line::from(Span::styled(
-                            "NEW HIGH SCORE!",
-                            Style::default().fg(Color::LightGreen).bold(),
-                        )),
-                    );
-                }
-                if stats.lives == 0 {
-                    lines.push(Line::from(Span::styled(
-                        "You lost all your lives.",
-                        Style::default().fg(Color::Red),
-                    )));
-                }
-                lines.push(Line::from(Span::styled(
-                    "Press Enter to restart or Esc to exit",
-                    Style::default().fg(Color::Yellow),
-                )));
-                Paragraph::new(lines)
-                    .alignment(Center)
-                    .render(center(combined_rect, Constraint::Length(48)), buf);
+                render_game_over(
+                    stats,
+                    current_number_area,
+                    suggestions_area,
+                    progress_bar_area,
+                    result_area,
+                    buf,
+                );
                 return;
             }
         }
@@ -316,6 +268,69 @@ fn hotkey_span<'a>(key: &'a str, description: &str) -> Vec<Span<'a>> {
         Span::styled(key, Style::default().fg(Color::LightCyan)),
         Span::styled(format!("> {}", description), Style::default().fg(Color::White)),
     ]
+}
+
+fn render_game_over(
+    stats: &StatsSnapshot,
+    current_number_area: Rect,
+    suggestions_area: Rect,
+    progress_bar_area: Rect,
+    result_area: Rect,
+    buf: &mut Buffer,
+) {
+    let combined_rect = Rect {
+        x: current_number_area.x,
+        y: current_number_area.y,
+        width: current_number_area.width,
+        height: current_number_area.height
+            + suggestions_area.height
+            + progress_bar_area.height
+            + result_area.height,
+    };
+    Block::bordered()
+        .border_style(Style::default().fg(Color::DarkGray))
+        .render(combined_rect, buf);
+    
+    let mut lines = vec![
+        Line::from(Span::styled(
+            format!("Final Score: {}", stats.score),
+            Style::default().fg(Color::Green),
+        )),
+        Line::from(Span::styled(
+            format!("Previous High: {}", stats.prev_high_score),
+            Style::default().fg(Color::Yellow),
+        )),
+        Line::from(Span::styled(
+            format!("Rounds Played: {}", stats.rounds),
+            Style::default().fg(Color::Magenta),
+        )),
+        Line::from(Span::styled(
+            format!("Max Streak: {}", stats.max_streak),
+            Style::default().fg(Color::Cyan),
+        )),
+    ];
+    if stats.new_high_score {
+        lines.insert(
+            1,
+            Line::from(Span::styled(
+                "NEW HIGH SCORE!",
+                Style::default().fg(Color::LightGreen).bold(),
+            )),
+        );
+    }
+    if stats.lives == 0 {
+        lines.push(Line::from(Span::styled(
+            "You lost all your lives.",
+            Style::default().fg(Color::Red),
+        )));
+    }
+    lines.push(Line::from(Span::styled(
+        "Press Enter to restart or Esc to exit",
+        Style::default().fg(Color::Yellow),
+    )));
+    Paragraph::new(lines)
+        .alignment(Center)
+        .render(center(combined_rect, Constraint::Length(48)), buf);
 }
 
 pub struct BinaryNumbersGame {
