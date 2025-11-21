@@ -16,7 +16,8 @@ pub fn parse_ascii_art(
     default_color: Color,
 ) -> Vec<AsciiCell> {
     let art_lines: Vec<Vec<char>> = art.lines().map(|line| line.chars().collect()).collect();
-    let color_lines: Vec<Vec<char>> = color_map_str.lines().map(|line| line.chars().collect()).collect();
+    let color_lines: Vec<Vec<char>> =
+        color_map_str.lines().map(|line| line.chars().collect()).collect();
 
     assert_eq!(art_lines.len(), color_lines.len(), "Art and color string must have same height");
 
@@ -27,12 +28,7 @@ pub fn parse_ascii_art(
 
         for (x, (&ch, &color_ch)) in art_row.iter().zip(color_row.iter()).enumerate() {
             let color = color_map.get(&color_ch).cloned().unwrap_or(default_color);
-            pixels.push(AsciiCell {
-                ch,
-                x: x as u16,
-                y: y as u16,
-                color,
-            });
+            pixels.push(AsciiCell { ch, x: x as u16, y: y as u16, color });
         }
     }
 
@@ -89,7 +85,7 @@ impl Widget for AsciiArtWidget {
 
 pub fn center(area: Rect, horizontal: Constraint) -> Rect {
     let [area] = Layout::horizontal([horizontal]).flex(Flex::Center).areas(area);
-    
+
     vertically_center(area)
 }
 
@@ -100,15 +96,13 @@ pub fn vertically_center(area: Rect) -> Rect {
 }
 
 pub trait When {
-    fn when(self, condition: bool, action: impl FnOnce(Self) -> Self) -> Self where Self: Sized;
+    fn when(self, condition: bool, action: impl FnOnce(Self) -> Self) -> Self
+    where
+        Self: Sized;
 }
 
 impl<T> When for T {
     fn when(self, condition: bool, action: impl FnOnce(T) -> T) -> Self {
-        if condition {
-            action(self)
-        } else {
-            self
-        }
+        if condition { action(self) } else { self }
     }
 }

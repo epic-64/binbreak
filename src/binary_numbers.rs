@@ -1,9 +1,9 @@
 use crate::keybinds;
 use crate::main_screen_widget::{MainScreenWidget, WidgetRef};
-use crate::utils::{center, When};
+use crate::utils::{When, center};
 use crossterm::event::{KeyCode, KeyEvent};
-use rand::prelude::SliceRandom;
 use rand::Rng;
+use rand::prelude::SliceRandom;
 use ratatui::buffer::Buffer;
 use ratatui::layout::{Constraint, Direction, Flex, Layout, Rect};
 use ratatui::prelude::Alignment::Center;
@@ -13,7 +13,7 @@ use ratatui::text::Span;
 use ratatui::widgets::BorderType::Double;
 use ratatui::widgets::{Block, BorderType, Paragraph};
 use std::collections::HashMap;
-use std::fs::{File};
+use std::fs::File;
 use std::io::{Read, Write};
 
 struct StatsSnapshot {
@@ -42,9 +42,8 @@ impl WidgetRef for BinaryNumbersGame {
 
 impl WidgetRef for BinaryNumbersPuzzle {
     fn render_ref(&self, area: Rect, buf: &mut Buffer) {
-        let [middle] = Layout::horizontal([Constraint::Percentage(100)])
-            .flex(Flex::Center)
-            .areas(area);
+        let [middle] =
+            Layout::horizontal([Constraint::Percentage(100)]).flex(Flex::Center).areas(area);
 
         let [stats_area, current_number_area, suggestions_area, progress_bar_area, result_area] =
             Layout::vertical([
@@ -58,10 +57,7 @@ impl WidgetRef for BinaryNumbersPuzzle {
             .horizontal_margin(0)
             .areas(middle);
 
-        Block::bordered()
-            .title_alignment(Center)
-            .dark_gray()
-            .render(stats_area, buf);
+        Block::bordered().title_alignment(Center).dark_gray().render(stats_area, buf);
 
         if let Some(stats) = &self.stats_snapshot {
             let high_label = if stats.new_high_score {
@@ -73,15 +69,30 @@ impl WidgetRef for BinaryNumbersPuzzle {
             };
 
             let line1 = Line::from(vec![
-                Span::styled(format!("Mode: {}  ", stats.bits.label()), Style::default().fg(Color::Yellow)),
+                Span::styled(
+                    format!("Mode: {}  ", stats.bits.label()),
+                    Style::default().fg(Color::Yellow),
+                ),
                 high_label,
             ]);
 
             let line2 = Line::from(vec![
-                Span::styled(format!("Score: {}  ", stats.score), Style::default().fg(Color::Green)),
-                Span::styled(format!("Streak: {}  ", stats.streak), Style::default().fg(Color::Cyan)),
-                Span::styled(format!("Max: {}  ", stats.max_streak), Style::default().fg(Color::Blue)),
-                Span::styled(format!("Rounds: {}  ", stats.rounds), Style::default().fg(Color::Magenta)),
+                Span::styled(
+                    format!("Score: {}  ", stats.score),
+                    Style::default().fg(Color::Green),
+                ),
+                Span::styled(
+                    format!("Streak: {}  ", stats.streak),
+                    Style::default().fg(Color::Cyan),
+                ),
+                Span::styled(
+                    format!("Max: {}  ", stats.max_streak),
+                    Style::default().fg(Color::Blue),
+                ),
+                Span::styled(
+                    format!("Rounds: {}  ", stats.rounds),
+                    Style::default().fg(Color::Magenta),
+                ),
                 Span::styled(format!("Lives: {}  ", stats.hearts), Style::default().fg(Color::Red)),
             ]);
 
@@ -92,7 +103,15 @@ impl WidgetRef for BinaryNumbersPuzzle {
 
             // If game over, render game over block occupying the remaining area and return early
             if stats.game_state == GameState::GameOver {
-                let combined_rect = Rect { x: current_number_area.x, y: current_number_area.y, width: current_number_area.width, height: current_number_area.height + suggestions_area.height + progress_bar_area.height + result_area.height };
+                let combined_rect = Rect {
+                    x: current_number_area.x,
+                    y: current_number_area.y,
+                    width: current_number_area.width,
+                    height: current_number_area.height
+                        + suggestions_area.height
+                        + progress_bar_area.height
+                        + result_area.height,
+                };
                 let block = Block::bordered()
                     .title("Game Over")
                     .title_alignment(Center)
@@ -100,18 +119,42 @@ impl WidgetRef for BinaryNumbersPuzzle {
                     .title_style(Style::default().fg(Color::Red));
                 block.render(combined_rect, buf);
                 let mut lines = vec![
-                    Line::from(Span::styled(format!("Final Score: {}", stats.score), Style::default().fg(Color::Green))),
-                    Line::from(Span::styled(format!("Previous High: {}", stats.prev_high_score), Style::default().fg(Color::Yellow))),
-                    Line::from(Span::styled(format!("Rounds Played: {}", stats.rounds), Style::default().fg(Color::Magenta))),
-                    Line::from(Span::styled(format!("Max Streak: {}", stats.max_streak), Style::default().fg(Color::Cyan))),
+                    Line::from(Span::styled(
+                        format!("Final Score: {}", stats.score),
+                        Style::default().fg(Color::Green),
+                    )),
+                    Line::from(Span::styled(
+                        format!("Previous High: {}", stats.prev_high_score),
+                        Style::default().fg(Color::Yellow),
+                    )),
+                    Line::from(Span::styled(
+                        format!("Rounds Played: {}", stats.rounds),
+                        Style::default().fg(Color::Magenta),
+                    )),
+                    Line::from(Span::styled(
+                        format!("Max Streak: {}", stats.max_streak),
+                        Style::default().fg(Color::Cyan),
+                    )),
                 ];
                 if stats.new_high_score {
-                    lines.insert(1, Line::from(Span::styled("NEW HIGH SCORE!", Style::default().fg(Color::LightGreen).bold())));
+                    lines.insert(
+                        1,
+                        Line::from(Span::styled(
+                            "NEW HIGH SCORE!",
+                            Style::default().fg(Color::LightGreen).bold(),
+                        )),
+                    );
                 }
                 if stats.lives == 0 {
-                    lines.push(Line::from(Span::styled("You lost all your lives.", Style::default().fg(Color::Red))));
+                    lines.push(Line::from(Span::styled(
+                        "You lost all your lives.",
+                        Style::default().fg(Color::Red),
+                    )));
                 }
-                lines.push(Line::from(Span::styled("Press Enter to restart or Esc to exit", Style::default().fg(Color::Yellow))));
+                lines.push(Line::from(Span::styled(
+                    "Press Enter to restart or Esc to exit",
+                    Style::default().fg(Color::Yellow),
+                )));
                 Paragraph::new(lines)
                     .alignment(Center)
                     .render(center(combined_rect, Constraint::Length(48)), buf);
@@ -134,13 +177,17 @@ impl WidgetRef for BinaryNumbersPuzzle {
             Bits::FourShift4 => Some(" x16"),
             Bits::FourShift8 => Some(" x256"),
             Bits::FourShift12 => Some(" x4096"),
-            _ => None
+            _ => None,
         };
         let mut spans = vec![Span::raw(binary_string.clone())];
-        if let Some(sfx) = scale_suffix { spans.push(Span::styled(sfx, Style::default().fg(Color::DarkGray))); }
+        if let Some(sfx) = scale_suffix {
+            spans.push(Span::styled(sfx, Style::default().fg(Color::DarkGray)));
+        }
         let total_width = spans.iter().map(|s| s.width()).sum::<usize>() as u16;
         let lines: Vec<Line> = vec![Line::from(spans)];
-        Paragraph::new(lines).alignment(Center).render(center(inner, Constraint::Length(total_width)), buf);
+        Paragraph::new(lines)
+            .alignment(Center)
+            .render(center(inner, Constraint::Length(total_width)), buf);
 
         let suggestions = self.suggestions();
         let suggestions_layout = Layout::default()
@@ -153,7 +200,11 @@ impl WidgetRef for BinaryNumbersPuzzle {
             let is_correct_number = self.is_correct_guess(*suggestion);
             let area = suggestions_layout[i];
 
-            let border_type = if item_is_selected { BorderType::Double } else { BorderType::Plain };
+            let border_type = if item_is_selected {
+                BorderType::Double
+            } else {
+                BorderType::Plain
+            };
 
             let border_color = if item_is_selected {
                 match self.guess_result {
@@ -181,7 +232,12 @@ impl WidgetRef for BinaryNumbersPuzzle {
             .constraints([Constraint::Percentage(50), Constraint::Percentage(50)])
             .areas(progress_bar_area);
 
-        Block::bordered().dark_gray().title("Status").title_alignment(Center).title_style(Style::default().white()).render(left, buf);
+        Block::bordered()
+            .dark_gray()
+            .title("Status")
+            .title_alignment(Center)
+            .title_style(Style::default().white())
+            .render(left, buf);
 
         if let Some(result) = &self.guess_result {
             let (icon, line1_text, color) = match result {
@@ -226,10 +282,8 @@ impl WidgetRef for BinaryNumbersPuzzle {
         time_block.render(right, buf);
 
         // Vertical layout inside the time block interior: gauge line + text line (2 lines total)
-        let [gauge_line, time_line] = Layout::vertical([
-            Constraint::Length(1),
-            Constraint::Length(1)
-        ]).areas(inner_time);
+        let [gauge_line, time_line] =
+            Layout::vertical([Constraint::Length(1), Constraint::Length(1)]).areas(inner_time);
 
         render_ascii_gauge(gauge_line, buf, ratio, gauge_color);
 
@@ -247,7 +301,11 @@ impl WidgetRef for BinaryNumbersPuzzle {
             hotkey_span("Enter", "confirm  "),
             hotkey_span("S", "skip  "),
             hotkey_span("Esc", "exit"),
-        ].iter().flatten().cloned().collect();
+        ]
+        .iter()
+        .flatten()
+        .cloned()
+        .collect();
 
         Paragraph::new(vec![Line::from(instruction_spans)])
             .alignment(Center)
@@ -280,25 +338,39 @@ pub struct BinaryNumbersGame {
     new_high_score_reached: bool,
 }
 
-
 #[derive(Copy, Clone, PartialEq, Debug)]
-enum GameState { Active, Result, PendingGameOver, GameOver }
+enum GameState {
+    Active,
+    Result,
+    PendingGameOver,
+    GameOver,
+}
 
 impl MainScreenWidget for BinaryNumbersGame {
     fn run(&mut self, dt: f64) {
         self.refresh_stats_snapshot();
-        if self.game_state == GameState::GameOver { return; }
+        if self.game_state == GameState::GameOver {
+            return;
+        }
         self.puzzle.run(dt);
-        if self.puzzle.guess_result.is_some() && !self.puzzle_resolved { self.finalize_round(); }
+        if self.puzzle.guess_result.is_some() && !self.puzzle_resolved {
+            self.finalize_round();
+        }
         self.refresh_stats_snapshot();
     }
 
-    fn handle_input(&mut self, input: KeyEvent) { self.handle_game_input(input); }
-    fn is_exit_intended(&self) -> bool { self.exit_intended }
+    fn handle_input(&mut self, input: KeyEvent) {
+        self.handle_game_input(input);
+    }
+    fn is_exit_intended(&self) -> bool {
+        self.exit_intended
+    }
 }
 
 impl BinaryNumbersGame {
-    pub fn new(bits: Bits) -> Self { Self::new_with_max_lives(bits, 3) }
+    pub fn new(bits: Bits) -> Self {
+        Self::new_with_max_lives(bits, 3)
+    }
     pub fn new_with_max_lives(bits: Bits, max_lives: u32) -> Self {
         let hs = HighScores::load();
         let starting_prev = hs.get(bits.high_score_key());
@@ -348,24 +420,32 @@ impl BinaryNumbersGame {
             match result {
                 GuessResult::Correct => {
                     self.streak += 1;
-                    if self.streak > self.max_streak { self.max_streak = self.streak; }
+                    if self.streak > self.max_streak {
+                        self.max_streak = self.streak;
+                    }
                     let streak_bonus = (self.streak - 1) * 2;
                     let points = 10 + streak_bonus;
                     self.score += points;
                     self.puzzle.last_points_awarded = points;
-                    if self.streak % 5 == 0 && self.lives < self.max_lives { self.lives += 1; }
-                }
+                    if self.streak % 5 == 0 && self.lives < self.max_lives {
+                        self.lives += 1;
+                    }
+                },
                 GuessResult::Incorrect | GuessResult::Timeout => {
                     self.streak = 0;
                     self.puzzle.last_points_awarded = 0;
-                    if self.lives > 0 { self.lives -= 1; }
-                }
+                    if self.lives > 0 {
+                        self.lives -= 1;
+                    }
+                },
             }
             // high score update
             let bits_key = self.bits.high_score_key();
             let prev = self.high_scores.get(bits_key);
             if self.score > prev {
-                if !self.new_high_score_reached { self.prev_high_score_for_display = prev; }
+                if !self.new_high_score_reached {
+                    self.prev_high_score_for_display = prev;
+                }
                 self.high_scores.update(bits_key, self.score);
                 self.new_high_score_reached = true;
                 let _ = self.high_scores.save();
@@ -381,9 +461,15 @@ impl BinaryNumbersGame {
     }
 
     pub fn handle_game_input(&mut self, input: KeyEvent) {
-        if keybinds::is_exit(input) { self.exit_intended = true; return; }
+        if keybinds::is_exit(input) {
+            self.exit_intended = true;
+            return;
+        }
 
-        if self.game_state == GameState::GameOver { self.handle_game_over_input(input); return; }
+        if self.game_state == GameState::GameOver {
+            self.handle_game_over_input(input);
+            return;
+        }
         match self.puzzle.guess_result {
             None => self.handle_no_result_yet(input),
             Some(_) => self.handle_result_available(input),
@@ -392,9 +478,13 @@ impl BinaryNumbersGame {
 
     fn handle_game_over_input(&mut self, key: KeyEvent) {
         match key {
-            x if keybinds::is_select(x) => { self.reset_game_state(); }
-            x if keybinds::is_exit(x) => { self.exit_intended = true; }
-            _ => {}
+            x if keybinds::is_select(x) => {
+                self.reset_game_state();
+            },
+            x if keybinds::is_exit(x) => {
+                self.exit_intended = true;
+            },
+            _ => {},
         }
     }
 
@@ -426,8 +516,8 @@ impl BinaryNumbersGame {
                     // if no suggestion is selected, select the first one
                     self.puzzle.selected_suggestion = Some(self.puzzle.suggestions[0]);
                 }
-            }
-            x if keybinds::is_left(x)  => {
+            },
+            x if keybinds::is_left(x) => {
                 // select the previous suggestion
                 if let Some(selected) = self.puzzle.selected_suggestion {
                     let current_index = self.puzzle.suggestions.iter().position(|&x| x == selected);
@@ -440,7 +530,7 @@ impl BinaryNumbersGame {
                         self.puzzle.selected_suggestion = Some(self.puzzle.suggestions[prev_index]);
                     }
                 }
-            }
+            },
             x if keybinds::is_select(x) => {
                 if let Some(selected) = self.puzzle.selected_suggestion {
                     if self.puzzle.is_correct_guess(selected) {
@@ -450,13 +540,13 @@ impl BinaryNumbersGame {
                     }
                     self.finalize_round();
                 }
-            }
-            KeyEvent { code: KeyCode::Char('s' | 'S'), .. }  => {
+            },
+            KeyEvent { code: KeyCode::Char('s' | 'S'), .. } => {
                 // Skip puzzle counts as timeout
                 self.puzzle.guess_result = Some(GuessResult::Timeout);
                 self.finalize_round();
-            }
-            _ => {}
+            },
+            _ => {},
         }
     }
 
@@ -467,19 +557,19 @@ impl BinaryNumbersGame {
                     GameState::PendingGameOver => {
                         // reveal summary
                         self.game_state = GameState::GameOver;
-                    }
+                    },
                     GameState::Result => {
                         // start next puzzle
                         self.puzzle = Self::init_puzzle(self.bits.clone(), self.streak);
                         self.puzzle_resolved = false;
                         self.game_state = GameState::Active;
-                    }
-                    GameState::GameOver => { /* handled elsewhere */ }
-                    GameState::Active => { /* shouldn't be here */ }
+                    },
+                    GameState::GameOver => { /* handled elsewhere */ },
+                    GameState::Active => { /* shouldn't be here */ },
                 }
-            }
+            },
             x if keybinds::is_exit(x) => self.exit_intended = true,
-            _ => {}
+            _ => {},
         }
     }
 
@@ -507,20 +597,74 @@ enum GuessResult {
 }
 
 #[derive(Clone)]
-pub enum Bits { Four, FourShift4, FourShift8, FourShift12, Eight, Twelve, Sixteen, }
+pub enum Bits {
+    Four,
+    FourShift4,
+    FourShift8,
+    FourShift12,
+    Eight,
+    Twelve,
+    Sixteen,
+}
 
 impl Bits {
-    pub fn to_int(&self) -> u32 { match self { Bits::Four | Bits::FourShift4 | Bits::FourShift8 | Bits::FourShift12 => 4, Bits::Eight => 8, Bits::Twelve => 12, Bits::Sixteen => 16 } }
-    pub fn scale_factor(&self) -> u32 { match self { Bits::Four => 1, Bits::FourShift4 => 16, Bits::FourShift8 => 256, Bits::FourShift12 => 4096, Bits::Eight => 1, Bits::Twelve => 1, Bits::Sixteen => 1 } }
-    pub fn high_score_key(&self) -> u32 { match self { Bits::Four => 4, Bits::FourShift4 => 44, Bits::FourShift8 => 48, Bits::FourShift12 => 412, Bits::Eight => 8, Bits::Twelve => 12, Bits::Sixteen => 16 } }
-    pub fn upper_bound(&self) -> u32 { (u32::pow(2, self.to_int()) - 1) * self.scale_factor() }
-    pub fn suggestion_count(&self) -> usize { match self { Bits::Four | Bits::FourShift4 | Bits::FourShift8 | Bits::FourShift12 => 3, Bits::Eight => 4, Bits::Twelve => 5, Bits::Sixteen => 6 } }
-    pub fn label(&self) -> &'static str { match self { Bits::Four => "4 bits", Bits::FourShift4 => "4 bits*16", Bits::FourShift8 => "4 bits*256", Bits::FourShift12 => "4 bits*4096", Bits::Eight => "8 bits", Bits::Twelve => "12 bits", Bits::Sixteen => "16 bits" } }
+    pub fn to_int(&self) -> u32 {
+        match self {
+            Bits::Four | Bits::FourShift4 | Bits::FourShift8 | Bits::FourShift12 => 4,
+            Bits::Eight => 8,
+            Bits::Twelve => 12,
+            Bits::Sixteen => 16,
+        }
+    }
+    pub fn scale_factor(&self) -> u32 {
+        match self {
+            Bits::Four => 1,
+            Bits::FourShift4 => 16,
+            Bits::FourShift8 => 256,
+            Bits::FourShift12 => 4096,
+            Bits::Eight => 1,
+            Bits::Twelve => 1,
+            Bits::Sixteen => 1,
+        }
+    }
+    pub fn high_score_key(&self) -> u32 {
+        match self {
+            Bits::Four => 4,
+            Bits::FourShift4 => 44,
+            Bits::FourShift8 => 48,
+            Bits::FourShift12 => 412,
+            Bits::Eight => 8,
+            Bits::Twelve => 12,
+            Bits::Sixteen => 16,
+        }
+    }
+    pub fn upper_bound(&self) -> u32 {
+        (u32::pow(2, self.to_int()) - 1) * self.scale_factor()
+    }
+    pub fn suggestion_count(&self) -> usize {
+        match self {
+            Bits::Four | Bits::FourShift4 | Bits::FourShift8 | Bits::FourShift12 => 3,
+            Bits::Eight => 4,
+            Bits::Twelve => 5,
+            Bits::Sixteen => 6,
+        }
+    }
+    pub fn label(&self) -> &'static str {
+        match self {
+            Bits::Four => "4 bits",
+            Bits::FourShift4 => "4 bits*16",
+            Bits::FourShift8 => "4 bits*256",
+            Bits::FourShift12 => "4 bits*4096",
+            Bits::Eight => "8 bits",
+            Bits::Twelve => "12 bits",
+            Bits::Sixteen => "16 bits",
+        }
+    }
 }
 
 pub struct BinaryNumbersPuzzle {
     bits: Bits,
-    current_number: u32, // scaled value used for suggestions matching
+    current_number: u32,     // scaled value used for suggestions matching
     raw_current_number: u32, // raw bit value (unscaled) for display
     suggestions: Vec<u32>,
     selected_suggestion: Option<u32>,
@@ -541,7 +685,9 @@ impl BinaryNumbersPuzzle {
         while suggestions.len() < bits.suggestion_count() {
             let raw = rng.random_range(0..=u32::pow(2, bits.to_int()) - 1);
             let num = raw * scale;
-            if !suggestions.contains(&num) { suggestions.push(num); }
+            if !suggestions.contains(&num) {
+                suggestions.push(num);
+            }
         }
 
         let current_number = suggestions[0]; // scaled value
@@ -577,8 +723,12 @@ impl BinaryNumbersPuzzle {
         }
     }
 
-    pub fn suggestions(&self) -> &[u32] { &self.suggestions }
-    pub fn is_correct_guess(&self, guess: u32) -> bool { guess == self.current_number }
+    pub fn suggestions(&self) -> &[u32] {
+        &self.suggestions
+    }
+    pub fn is_correct_guess(&self, guess: u32) -> bool {
+        guess == self.current_number
+    }
 
     pub fn current_to_binary_string(&self) -> String {
         let width = self.bits.to_int() as usize;
@@ -619,8 +769,11 @@ impl Widget for &mut BinaryNumbersGame {
 
 // Simple ASCII gauge renderer to avoid variable glyph heights from Unicode block elements
 fn render_ascii_gauge(area: Rect, buf: &mut Buffer, ratio: f64, color: Color) {
-    let fill_width = ((area.width as f64) * ratio.clamp(0.0, 1.0)).round().min(area.width as f64) as u16;
-    if area.height == 0 { return; }
+    let fill_width =
+        ((area.width as f64) * ratio.clamp(0.0, 1.0)).round().min(area.width as f64) as u16;
+    if area.height == 0 {
+        return;
+    }
     for x in 0..area.width {
         let filled = x < fill_width;
         let symbol = if filled { "=" } else { " " };
@@ -637,12 +790,16 @@ fn render_ascii_gauge(area: Rect, buf: &mut Buffer, ratio: f64, color: Color) {
     }
 }
 
-struct HighScores { scores: HashMap<u32, u32>, }
+struct HighScores {
+    scores: HashMap<u32, u32>,
+}
 
 impl HighScores {
     const FILE: &'static str = "binbreak_highscores.txt";
 
-    fn empty() -> Self { Self { scores: HashMap::new() } }
+    fn empty() -> Self {
+        Self { scores: HashMap::new() }
+    }
 
     fn load() -> Self {
         let mut hs = Self::empty();
@@ -650,7 +807,7 @@ impl HighScores {
             let mut contents = String::new();
             if file.read_to_string(&mut contents).is_ok() {
                 for line in contents.lines() {
-                    if let Some((k,v)) = line.split_once('=')
+                    if let Some((k, v)) = line.split_once('=')
                         && let Ok(bits) = k.trim().parse::<u32>()
                         && let Ok(score) = v.trim().parse::<u32>()
                     {
@@ -664,7 +821,7 @@ impl HighScores {
 
     fn save(&self) -> std::io::Result<()> {
         let mut data = String::new();
-        for key in [4u32,44u32,48u32,412u32,8u32,12u32,16u32] {
+        for key in [4u32, 44u32, 48u32, 412u32, 8u32, 12u32, 16u32] {
             let val = self.get(key);
             data.push_str(&format!("{}={}\n", key, val));
         }
@@ -684,9 +841,9 @@ impl HighScores {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crossterm::event::{KeyModifiers, KeyEventKind, KeyEventState};
-    use std::sync::Mutex;
+    use crossterm::event::{KeyEventKind, KeyEventState, KeyModifiers};
     use std::fs;
+    use std::sync::Mutex;
 
     static HS_LOCK: Mutex<()> = Mutex::new(());
 
@@ -696,8 +853,12 @@ mod tests {
         f();
         // restore
         match original {
-            Some(data) => { let _ = fs::write(HighScores::FILE, data); }
-            None => { let _ = fs::remove_file(HighScores::FILE); }
+            Some(data) => {
+                let _ = fs::write(HighScores::FILE, data);
+            },
+            None => {
+                let _ = fs::remove_file(HighScores::FILE);
+            },
         }
     }
 
@@ -726,9 +887,13 @@ mod tests {
         // uniqueness
         let mut sorted = p.suggestions().to_vec();
         sorted.sort();
-        for pair in sorted.windows(2) { assert_ne!(pair[0], pair[1]); }
+        for pair in sorted.windows(2) {
+            assert_ne!(pair[0], pair[1]);
+        }
         // scaling property
-        for &s in p.suggestions() { assert_eq!(s % scale, 0); }
+        for &s in p.suggestions() {
+            assert_eq!(s % scale, 0);
+        }
         // current number must be one of suggestions and raw_current_number * scale == current_number
         assert!(p.suggestions().contains(&p.current_number));
         assert_eq!(p.raw_current_number * scale, p.current_number);
@@ -839,11 +1004,21 @@ mod tests {
         let mut g = BinaryNumbersGame::new(Bits::Four);
         let initial = g.puzzle.selected_suggestion;
         // Simulate Right key
-        let right_event = KeyEvent { code: KeyCode::Right, modifiers: KeyModifiers::empty(), kind: KeyEventKind::Press, state: KeyEventState::NONE };
+        let right_event = KeyEvent {
+            code: KeyCode::Right,
+            modifiers: KeyModifiers::empty(),
+            kind: KeyEventKind::Press,
+            state: KeyEventState::NONE,
+        };
         g.handle_game_input(right_event);
         assert_ne!(g.puzzle.selected_suggestion, initial);
         // Simulate Left key should cycle back
-        let left_event = KeyEvent { code: KeyCode::Left, modifiers: KeyModifiers::empty(), kind: KeyEventKind::Press, state: KeyEventState::NONE };
+        let left_event = KeyEvent {
+            code: KeyCode::Left,
+            modifiers: KeyModifiers::empty(),
+            kind: KeyEventKind::Press,
+            state: KeyEventState::NONE,
+        };
         g.handle_game_input(left_event);
         assert!(g.puzzle.selected_suggestion.is_some());
     }
