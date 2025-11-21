@@ -55,9 +55,21 @@ You may be inclined to not run binaries from the internet, and want to build fro
 cargo run --release
 ```
 
+# Contributing
+
 ## Test
 ```bash
 cargo test
+```
+
+## Lint
+```bash
+cargo clippy
+```
+
+## Format
+```bash
+cargo fmt
 ```
 
 ## License
