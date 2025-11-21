@@ -470,7 +470,7 @@ impl BinaryNumbersGame {
                     let points = 10 + streak_bonus;
                     self.score += points;
                     self.puzzle.last_points_awarded = points;
-                    if self.streak % 5 == 0 && self.lives < self.max_lives {
+                    if self.streak.is_multiple_of(5) && self.lives < self.max_lives {
                         self.lives += 1;
                     }
                 },
