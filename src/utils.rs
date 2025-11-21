@@ -27,7 +27,7 @@ pub fn parse_ascii_art(
         assert_eq!(art_row.len(), color_row.len(), "Mismatched line lengths");
 
         for (x, (&ch, &color_ch)) in art_row.iter().zip(color_row.iter()).enumerate() {
-            let color = color_map.get(&color_ch).cloned().unwrap_or(default_color);
+            let color = color_map.get(&color_ch).copied().unwrap_or(default_color);
             pixels.push(AsciiCell { ch, x: x as u16, y: y as u16, color });
         }
     }
@@ -63,7 +63,7 @@ pub struct AsciiArtWidget {
 }
 
 impl AsciiArtWidget {
-    pub fn new(collection: AsciiCells) -> Self {
+    pub const fn new(collection: AsciiCells) -> Self {
         Self { collection }
     }
 }

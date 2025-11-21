@@ -130,11 +130,11 @@ impl WidgetRef for BinaryNumbersPuzzle {
             Bits::FourShift12 => Some(" x4096"),
             _ => None,
         };
-        let mut spans = vec![Span::raw(binary_string.clone())];
+        let mut spans = vec![Span::raw(binary_string)];
         if let Some(sfx) = scale_suffix {
             spans.push(Span::styled(sfx, Style::default().fg(Color::DarkGray)));
         }
-        let total_width = spans.iter().map(|s| s.width()).sum::<usize>() as u16;
+        let total_width = spans.iter().map(ratatui::prelude::Span::width).sum::<usize>() as u16;
         let lines: Vec<Line> = vec![Line::from(spans)];
         Paragraph::new(lines)
             .alignment(Center)
@@ -207,7 +207,7 @@ impl WidgetRef for BinaryNumbersPuzzle {
                 Line::from(format!("{icon} {line1_text}").fg(color)),
                 Line::from(gained_line.fg(color)),
             ];
-            let widest = text.iter().map(|l| l.width()).max().unwrap_or(0) as u16;
+            let widest = text.iter().map(ratatui::prelude::Line::width).max().unwrap_or(0) as u16;
             Paragraph::new(text)
                 .alignment(Center)
                 .style(Style::default().fg(color))
@@ -388,7 +388,7 @@ impl BinaryNumbersGame {
         let starting_prev = hs.get(bits.high_score_key());
         let mut game = Self {
             bits: bits.clone(),
-            puzzle: Self::init_puzzle(bits.clone(), 0),
+            puzzle: Self::init_puzzle(bits, 0),
             exit_intended: false,
             score: 0,
             streak: 0,
@@ -619,56 +619,56 @@ pub enum Bits {
 }
 
 impl Bits {
-    pub fn to_int(&self) -> u32 {
+    pub const fn to_int(&self) -> u32 {
         match self {
-            Bits::Four | Bits::FourShift4 | Bits::FourShift8 | Bits::FourShift12 => 4,
-            Bits::Eight => 8,
-            Bits::Twelve => 12,
-            Bits::Sixteen => 16,
+            Self::Four | Self::FourShift4 | Self::FourShift8 | Self::FourShift12 => 4,
+            Self::Eight => 8,
+            Self::Twelve => 12,
+            Self::Sixteen => 16,
         }
     }
-    pub fn scale_factor(&self) -> u32 {
+    pub const fn scale_factor(&self) -> u32 {
         match self {
-            Bits::Four => 1,
-            Bits::FourShift4 => 16,
-            Bits::FourShift8 => 256,
-            Bits::FourShift12 => 4096,
-            Bits::Eight => 1,
-            Bits::Twelve => 1,
-            Bits::Sixteen => 1,
+            Self::Four => 1,
+            Self::FourShift4 => 16,
+            Self::FourShift8 => 256,
+            Self::FourShift12 => 4096,
+            Self::Eight => 1,
+            Self::Twelve => 1,
+            Self::Sixteen => 1,
         }
     }
-    pub fn high_score_key(&self) -> u32 {
+    pub const fn high_score_key(&self) -> u32 {
         match self {
-            Bits::Four => 4,
-            Bits::FourShift4 => 44,
-            Bits::FourShift8 => 48,
-            Bits::FourShift12 => 412,
-            Bits::Eight => 8,
-            Bits::Twelve => 12,
-            Bits::Sixteen => 16,
+            Self::Four => 4,
+            Self::FourShift4 => 44,
+            Self::FourShift8 => 48,
+            Self::FourShift12 => 412,
+            Self::Eight => 8,
+            Self::Twelve => 12,
+            Self::Sixteen => 16,
         }
     }
-    pub fn upper_bound(&self) -> u32 {
+    pub const fn upper_bound(&self) -> u32 {
         (u32::pow(2, self.to_int()) - 1) * self.scale_factor()
     }
-    pub fn suggestion_count(&self) -> usize {
+    pub const fn suggestion_count(&self) -> usize {
         match self {
-            Bits::Four | Bits::FourShift4 | Bits::FourShift8 | Bits::FourShift12 => 3,
-            Bits::Eight => 4,
-            Bits::Twelve => 5,
-            Bits::Sixteen => 6,
+            Self::Four | Self::FourShift4 | Self::FourShift8 | Self::FourShift12 => 3,
+            Self::Eight => 4,
+            Self::Twelve => 5,
+            Self::Sixteen => 6,
         }
     }
-    pub fn label(&self) -> &'static str {
+    pub const fn label(&self) -> &'static str {
         match self {
-            Bits::Four => "4 bits",
-            Bits::FourShift4 => "4 bits*16",
-            Bits::FourShift8 => "4 bits*256",
-            Bits::FourShift12 => "4 bits*4096",
-            Bits::Eight => "8 bits",
-            Bits::Twelve => "12 bits",
-            Bits::Sixteen => "16 bits",
+            Self::Four => "4 bits",
+            Self::FourShift4 => "4 bits*16",
+            Self::FourShift8 => "4 bits*256",
+            Self::FourShift12 => "4 bits*4096",
+            Self::Eight => "8 bits",
+            Self::Twelve => "12 bits",
+            Self::Sixteen => "16 bits",
         }
     }
 }
@@ -694,7 +694,7 @@ impl BinaryNumbersPuzzle {
         let mut suggestions = Vec::new();
         let scale = bits.scale_factor();
         while suggestions.len() < bits.suggestion_count() {
-            let raw = rng.random_range(0..=u32::pow(2, bits.to_int()) - 1);
+            let raw = rng.random_range(0..u32::pow(2, bits.to_int()));
             let num = raw * scale;
             if !suggestions.contains(&num) {
                 suggestions.push(num);
@@ -712,7 +712,7 @@ impl BinaryNumbersPuzzle {
             Bits::Twelve => 16.0,
             Bits::Sixteen => 20.0,
         };
-        let penalty = (streak as f64) * 0.5; // 0.5s less per streak
+        let penalty = f64::from(streak) * 0.5; // 0.5s less per streak
         let time_total = (base_time - penalty).max(5.0);
         let time_left = time_total;
         let selected_suggestion = Some(suggestions[0]);
@@ -737,7 +737,7 @@ impl BinaryNumbersPuzzle {
     pub fn suggestions(&self) -> &[u32] {
         &self.suggestions
     }
-    pub fn is_correct_guess(&self, guess: u32) -> bool {
+    pub const fn is_correct_guess(&self, guess: u32) -> bool {
         guess == self.current_number
     }
 
@@ -781,7 +781,7 @@ impl Widget for &mut BinaryNumbersGame {
 // Simple ASCII gauge renderer to avoid variable glyph heights from Unicode block elements
 fn render_ascii_gauge(area: Rect, buf: &mut Buffer, ratio: f64, color: Color) {
     let fill_width =
-        ((area.width as f64) * ratio.clamp(0.0, 1.0)).round().min(area.width as f64) as u16;
+        (f64::from(area.width) * ratio.clamp(0.0, 1.0)).round().min(f64::from(area.width)) as u16;
     if area.height == 0 {
         return;
     }
@@ -897,7 +897,7 @@ mod tests {
         assert_eq!(p.suggestions().len(), Bits::FourShift4.suggestion_count());
         // uniqueness
         let mut sorted = p.suggestions().to_vec();
-        sorted.sort();
+        sorted.sort_unstable();
         for pair in sorted.windows(2) {
             assert_ne!(pair[0], pair[1]);
         }
