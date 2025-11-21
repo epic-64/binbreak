@@ -1,4 +1,3 @@
-use std::fmt::Write as _;
 use crate::keybinds;
 use crate::main_screen_widget::{MainScreenWidget, WidgetRef};
 use crate::utils::{When, center};
@@ -14,6 +13,7 @@ use ratatui::text::Span;
 use ratatui::widgets::BorderType::Double;
 use ratatui::widgets::{Block, BorderType, Paragraph};
 use std::collections::HashMap;
+use std::fmt::Write as _;
 use std::fs::File;
 use std::io::{Read, Write};
 
@@ -131,9 +131,8 @@ impl BinaryNumbersPuzzle {
     }
 
     fn render_current_number(&self, area: Rect, buf: &mut Buffer) {
-        let [inner] = Layout::horizontal([Constraint::Percentage(100)])
-            .flex(Flex::Center)
-            .areas(area);
+        let [inner] =
+            Layout::horizontal([Constraint::Percentage(100)]).flex(Flex::Center).areas(area);
 
         Block::bordered()
             .border_type(Double)
@@ -322,10 +321,8 @@ fn render_game_over(
             + progress_bar_area.height
             + result_area.height,
     };
-    Block::bordered()
-        .border_style(Style::default().fg(Color::DarkGray))
-        .render(combined_rect, buf);
-    
+    Block::bordered().border_style(Style::default().fg(Color::DarkGray)).render(combined_rect, buf);
+
     let mut lines = vec![
         Line::from(Span::styled(
             format!("Final Score: {}", stats.score),
