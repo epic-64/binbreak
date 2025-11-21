@@ -334,11 +334,6 @@ impl BinaryNumbersGame {
         self.game_state == GameState::Active
     }
 
-    /// Check if we need to render one frame (e.g., after state transition)
-    pub fn needs_render(&self) -> bool {
-        self.needs_render
-    }
-
     /// Clear the needs_render flag after rendering
     pub fn clear_needs_render(&mut self) {
         self.needs_render = false;

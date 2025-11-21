@@ -162,8 +162,6 @@ fn handle_crossterm_events(app_state: &mut AppState) -> color_eyre::Result<()> {
 fn get_fps_mode(game: &BinaryNumbersGame) -> FpsMode {
     if game.is_active() {
         FpsMode::RealTime  // Timer running, needs continuous updates
-    } else if game.needs_render() {
-        FpsMode::RealTime  // One frame after state transition
     } else {
         FpsMode::Performance  // All other cases, block for minimal CPU
     }
