@@ -204,7 +204,7 @@ impl WidgetRef for BinaryNumbersPuzzle {
             };
 
             let text = vec![
-                Line::from(format!("{} {}", icon, line1_text).fg(color)),
+                Line::from(format!("{icon} {line1_text}").fg(color)),
                 Line::from(gained_line.fg(color)),
             ];
             let widest = text.iter().map(|l| l.width()).max().unwrap_or(0) as u16;
@@ -266,7 +266,7 @@ fn hotkey_span<'a>(key: &'a str, description: &str) -> Vec<Span<'a>> {
     vec![
         Span::styled("<", Style::default().fg(Color::White)),
         Span::styled(key, Style::default().fg(Color::LightCyan)),
-        Span::styled(format!("> {}", description), Style::default().fg(Color::White)),
+        Span::styled(format!("> {description}"), Style::default().fg(Color::White)),
     ]
 }
 
@@ -422,7 +422,7 @@ impl BinaryNumbersGame {
         let full = "♥".repeat(full_count);
         let empty_count = self.max_lives.saturating_sub(self.lives) as usize;
         let empty = "·".repeat(empty_count);
-        format!("{}{}", full, empty)
+        format!("{full}{empty}")
     }
 
     fn finalize_round(&mut self) {
@@ -834,7 +834,7 @@ impl HighScores {
         let mut data = String::new();
         for key in [4u32, 44u32, 48u32, 412u32, 8u32, 12u32, 16u32] {
             let val = self.get(key);
-            data.push_str(&format!("{}={}\n", key, val));
+            data.push_str(&format!("{key}={val}\n"));
         }
         let mut file = File::create(Self::FILE)?;
         file.write_all(data.as_bytes())

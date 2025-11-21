@@ -107,7 +107,7 @@ fn render_start_screen(state: &mut StartMenuState, area: Rect, buf: &mut Buffer)
         .map(|(i, label)| {
             let marker = if i == selected { '»' } else { ' ' };
             let padded = format!("{:<width$}", label, width = max_len as usize);
-            let line = format!("{} {}", marker, padded);
+            let line = format!("{marker} {padded}");
             let style =
                 Style::default().fg(palette[i % palette.len()]).add_modifier(Modifier::BOLD);
             ListItem::new(Span::styled(line, style))
