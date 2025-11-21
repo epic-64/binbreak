@@ -58,7 +58,32 @@ impl WidgetRef for BinaryNumbersPuzzle {
             .horizontal_margin(0)
             .areas(middle);
 
-        Block::bordered().title_alignment(Center).dark_gray().render(stats_area, buf);
+        self.render_stats_area(stats_area, buf);
+
+        if let Some(stats) = &self.stats_snapshot {
+            if stats.game_state == GameState::GameOver {
+                render_game_over(
+                    stats,
+                    current_number_area,
+                    suggestions_area,
+                    progress_bar_area,
+                    result_area,
+                    buf,
+                );
+                return;
+            }
+        }
+
+        self.render_current_number(current_number_area, buf);
+        self.render_suggestions(suggestions_area, buf);
+        self.render_status_and_timer(progress_bar_area, buf);
+        self.render_instructions(result_area, buf);
+    }
+}
+
+impl BinaryNumbersPuzzle {
+    fn render_stats_area(&self, area: Rect, buf: &mut Buffer) {
+        Block::bordered().title_alignment(Center).dark_gray().render(area, buf);
 
         if let Some(stats) = &self.stats_snapshot {
             let high_label = if stats.new_high_score {
@@ -101,24 +126,14 @@ impl WidgetRef for BinaryNumbersPuzzle {
             let widest = line1.width().max(line2.width()) as u16;
             Paragraph::new(vec![line1, line2])
                 .alignment(Center)
-                .render(center(stats_area, Constraint::Length(widest)), buf);
-
-            if stats.game_state == GameState::GameOver {
-                render_game_over(
-                    stats,
-                    current_number_area,
-                    suggestions_area,
-                    progress_bar_area,
-                    result_area,
-                    buf,
-                );
-                return;
-            }
+                .render(center(area, Constraint::Length(widest)), buf);
         }
+    }
 
+    fn render_current_number(&self, area: Rect, buf: &mut Buffer) {
         let [inner] = Layout::horizontal([Constraint::Percentage(100)])
             .flex(Flex::Center)
-            .areas(current_number_area);
+            .areas(area);
 
         Block::bordered()
             .border_type(Double)
@@ -142,12 +157,15 @@ impl WidgetRef for BinaryNumbersPuzzle {
         Paragraph::new(lines)
             .alignment(Center)
             .render(center(inner, Constraint::Length(total_width)), buf);
+    }
 
+    fn render_suggestions(&self, area: Rect, buf: &mut Buffer) {
         let suggestions = self.suggestions();
         let suggestions_layout = Layout::default()
             .direction(Direction::Horizontal)
             .constraints(vec![Constraint::Min(6); suggestions.len()])
-            .split(suggestions_area);
+            .split(area);
+
         for (i, suggestion) in suggestions.iter().enumerate() {
             let item_is_selected = self.selected_suggestion == Some(*suggestion);
             let show_correct_number = self.guess_result.is_some();
@@ -182,18 +200,25 @@ impl WidgetRef for BinaryNumbersPuzzle {
                 .alignment(Center)
                 .render(center(area, Constraint::Length(suggestion_str.len() as u16)), buf);
         }
+    }
 
+    fn render_status_and_timer(&self, area: Rect, buf: &mut Buffer) {
         let [left, right] = Layout::default()
             .direction(Direction::Horizontal)
             .constraints([Constraint::Percentage(50), Constraint::Percentage(50)])
-            .areas(progress_bar_area);
+            .areas(area);
 
+        self.render_status(left, buf);
+        self.render_timer(right, buf);
+    }
+
+    fn render_status(&self, area: Rect, buf: &mut Buffer) {
         Block::bordered()
             .dark_gray()
             .title("Status")
             .title_alignment(Center)
             .title_style(Style::default().white())
-            .render(left, buf);
+            .render(area, buf);
 
         if let Some(result) = &self.guess_result {
             let (icon, line1_text, color) = match result {
@@ -217,9 +242,11 @@ impl WidgetRef for BinaryNumbersPuzzle {
             Paragraph::new(text)
                 .alignment(Center)
                 .style(Style::default().fg(color))
-                .render(center(left, Constraint::Length(widest)), buf);
+                .render(center(area, Constraint::Length(widest)), buf);
         }
+    }
 
+    fn render_timer(&self, area: Rect, buf: &mut Buffer) {
         let ratio = self.time_left / self.time_total;
         let gauge_color = if ratio > 0.6 {
             Color::Green
@@ -234,8 +261,8 @@ impl WidgetRef for BinaryNumbersPuzzle {
             .title("Time Remaining")
             .title_style(Style::default().white())
             .title_alignment(Center);
-        let inner_time = time_block.inner(right);
-        time_block.render(right, buf);
+        let inner_time = time_block.inner(area);
+        time_block.render(area, buf);
 
         let [gauge_line, time_line] =
             Layout::vertical([Constraint::Length(1), Constraint::Length(1)]).areas(inner_time);
@@ -248,8 +275,10 @@ impl WidgetRef for BinaryNumbersPuzzle {
         )))
         .alignment(Center)
         .render(time_line, buf);
+    }
 
-        Block::bordered().dark_gray().render(result_area, buf);
+    fn render_instructions(&self, area: Rect, buf: &mut Buffer) {
+        Block::bordered().dark_gray().render(area, buf);
 
         let instruction_spans: Vec<Span> = [
             hotkey_span("Left Right", "select  "),
@@ -264,7 +293,7 @@ impl WidgetRef for BinaryNumbersPuzzle {
 
         Paragraph::new(vec![Line::from(instruction_spans)])
             .alignment(Center)
-            .render(center(result_area, Constraint::Length(65)), buf);
+            .render(center(area, Constraint::Length(65)), buf);
     }
 }
 
