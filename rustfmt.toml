@@ -1,0 +1,69 @@
+# Rustfmt configuration for binbreak project
+
+# Edition
+edition = "2021"
+
+# Maximum width of each line
+max_width = 120
+
+# Maximum width of the args of a function call before falling back to vertical formatting
+fn_call_width = 100
+
+# Maximum width of the args of a function-like attributes before falling back to vertical formatting
+attr_fn_like_width = 100
+
+# Maximum width in the body of a struct lit before falling back to vertical formatting
+struct_lit_width = 100
+
+# Maximum width in the body of a struct variant before falling back to vertical formatting
+struct_variant_width = 100
+
+# Maximum width of an array literal before falling back to vertical formatting
+array_width = 100
+
+# Maximum width of a chain to fit on a single line
+chain_width = 100
+
+# Maximum line length for single line if-else expressions
+single_line_if_else_max_width = 80
+
+# How to indent in files
+hard_tabs = false
+
+# Number of spaces per tab
+tab_spaces = 4
+
+# Remove nested parens
+remove_nested_parens = true
+
+# Reorder imports
+reorder_imports = true
+
+# Reorder modules
+reorder_modules = true
+
+# Use field init shorthand if possible
+use_field_init_shorthand = true
+
+# Use try shorthand
+use_try_shorthand = true
+
+# Force explicit types in let statements
+force_explicit_abi = true
+
+# Newline style
+newline_style = "Unix"
+
+# Merge derives
+merge_derives = true
+
+# Use small heuristics (Off, Max, or Default)
+# Max preserves more single-line expressions
+use_small_heuristics = "Max"
+
+# Match block trailing comma
+match_block_trailing_comma = true
+
+# Ignore files
+ignore = []
+
