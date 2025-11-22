@@ -4,16 +4,16 @@ use crate::main_screen_widget::MainScreenWidget;
 use crate::utils::{AsciiArtWidget, AsciiCells};
 use crossterm::event;
 use crossterm::event::{Event, KeyCode, KeyEvent, KeyEventKind, KeyModifiers};
+use indoc::indoc;
 use ratatui::buffer::Buffer;
 use ratatui::layout::Rect;
 use ratatui::prelude::{Color, Modifier, Span, Style, Widget};
 use ratatui::widgets::{List, ListItem, ListState};
 use std::cmp;
 use std::collections::HashMap;
+use std::sync::atomic::{AtomicUsize, Ordering};
 use std::thread;
 use std::time::Instant;
-use indoc::indoc;
-use std::sync::atomic::{AtomicUsize, Ordering};
 
 static LAST_SELECTED_INDEX: AtomicUsize = AtomicUsize::new(4);
 
@@ -46,9 +46,9 @@ fn handle_start_input(state: &mut StartMenuState, key: KeyEvent) -> Option<AppSt
             // Store the current selection before entering the game
             set_last_selected_index(state.selected_index());
             return Some(AppState::Playing(BinaryNumbersGame::new(bits)));
-        }
+        },
         x if keybinds::is_exit(x) => return Some(AppState::Exit),
-        _ => {}
+        _ => {},
     }
     None
 }
@@ -62,13 +62,11 @@ fn render_start_screen(state: &mut StartMenuState, area: Rect, buf: &mut Buffer)
 
     let selected = state.selected_index();
     let upper_labels: Vec<String> = state.items.iter().map(|(l, _)| l.to_uppercase()).collect();
-    let max_len = upper_labels
-        .iter()
-        .map(|s| s.len() as u16)
-        .max()
-        .unwrap_or(0);
+    #[allow(clippy::cast_possible_truncation)]
+    let max_len = upper_labels.iter().map(|s| s.len() as u16).max().unwrap_or(0);
 
     let list_width = 2 + max_len; // marker + space + label
+    #[allow(clippy::cast_possible_truncation)]
     let list_height = upper_labels.len() as u16;
 
     // Vertical spacing between ASCII art and list
@@ -83,12 +81,8 @@ fn render_start_screen(state: &mut StartMenuState, area: Rect, buf: &mut Buffer)
     let list_y = ascii_y + ascii_height + spacing;
 
     // Define rects (clamp to area)
-    let ascii_area = Rect::new(
-        ascii_x,
-        ascii_y,
-        ascii_width.min(area.width),
-        ascii_height.min(area.height),
-    );
+    let ascii_area =
+        Rect::new(ascii_x, ascii_y, ascii_width.min(area.width), ascii_height.min(area.height));
     let list_area = Rect::new(
         list_x,
         list_y,
@@ -115,10 +109,9 @@ fn render_start_screen(state: &mut StartMenuState, area: Rect, buf: &mut Buffer)
         .map(|(i, label)| {
             let marker = if i == selected { '»' } else { ' ' };
             let padded = format!("{:<width$}", label, width = max_len as usize);
-            let line = format!("{} {}", marker, padded);
-            let style = Style::default()
-                .fg(palette[i % palette.len()])
-                .add_modifier(Modifier::BOLD);
+            let line = format!("{marker} {padded}");
+            let style =
+                Style::default().fg(palette[i % palette.len()]).add_modifier(Modifier::BOLD);
             ListItem::new(Span::styled(line, style))
         })
         .collect();
@@ -133,26 +126,23 @@ fn handle_crossterm_events(app_state: &mut AppState) -> color_eyre::Result<()> {
     {
         match key.code {
             // global exit via Ctrl+C
-            KeyCode::Char('c' | 'C')
-                if key.modifiers == KeyModifiers::CONTROL =>
-            {
+            KeyCode::Char('c' | 'C') if key.modifiers == KeyModifiers::CONTROL => {
                 *app_state = AppState::Exit;
-            }
+            },
 
             // state-specific input handling
             _ => {
                 *app_state = match std::mem::replace(app_state, AppState::Exit) {
                     AppState::Start(mut menu) => {
-                        handle_start_input(&mut menu, key)
-                            .unwrap_or(AppState::Start(menu))
-                    }
+                        handle_start_input(&mut menu, key).unwrap_or(AppState::Start(menu))
+                    },
                     AppState::Playing(mut game) => {
                         game.handle_input(key);
                         AppState::Playing(game)
-                    }
+                    },
                     AppState::Exit => AppState::Exit,
                 }
-            }
+            },
         }
     }
     Ok(())
@@ -161,11 +151,9 @@ fn handle_crossterm_events(app_state: &mut AppState) -> color_eyre::Result<()> {
 /// Determine the appropriate FPS mode based on the current game state
 fn get_fps_mode(game: &BinaryNumbersGame) -> FpsMode {
     if game.is_active() {
-        FpsMode::RealTime  // Timer running, needs continuous updates
-    } else if game.needs_render() {
-        FpsMode::RealTime  // One frame after state transition
+        FpsMode::RealTime // Timer running, needs continuous updates
     } else {
-        FpsMode::Performance  // All other cases, block for minimal CPU
+        FpsMode::Performance // All other cases, block for minimal CPU
     }
 }
 
@@ -191,14 +179,8 @@ pub fn run_app(terminal: &mut ratatui::DefaultTerminal) -> color_eyre::Result<()
         terminal.draw(|f| match &mut app_state {
             AppState::Start(menu) => render_start_screen(menu, f.area(), f.buffer_mut()),
             AppState::Playing(game) => f.render_widget(&mut *game, f.area()),
-            AppState::Exit => {}
+            AppState::Exit => {},
         })?;
-
-        // Clear needs_render flag after frame is rendered
-        // State transitions will set this flag again as needed, in performance mode
-        if let AppState::Playing(game) = &mut app_state {
-            game.clear_needs_render();
-        }
 
         // handle input
         if let AppState::Playing(game) = &app_state {
@@ -265,12 +247,7 @@ fn ascii_art_cells() -> AsciiCells {
     ]);
 
     let default_color = Color::LightBlue;
-    AsciiCells::from(
-        art.to_string(),
-        colors.to_string(),
-        &color_map,
-        default_color,
-    )
+    AsciiCells::from(art, colors, &color_map, default_color)
 }
 
 // Start menu state
@@ -295,10 +272,7 @@ impl StartMenuState {
             ("insane     (16 bits)".to_string(), Bits::Sixteen),
         ];
 
-        Self {
-            items,
-            list_state: ListState::default().with_selected(Some(selected_index)),
-        }
+        Self { items, list_state: ListState::default().with_selected(Some(selected_index)) }
     }
 
     fn selected_index(&self) -> usize {

@@ -1,0 +1,31 @@
+# ============================================================================
+# Clippy Threshold Configuration
+# ============================================================================
+# This file configures clippy threshold values that cannot be set in Cargo.toml
+# Lint levels (warn/deny/allow) are configured in Cargo.toml [lints.clippy]
+# https://doc.rust-lang.org/clippy/lint_configuration.html
+# ============================================================================
+
+# Complexity thresholds
+cognitive-complexity-threshold = 30        # default: 25
+too-many-arguments-threshold = 8           # default: 7
+too-many-lines-threshold = 80              # default: 100
+type-complexity-threshold = 250            # default: 500
+
+# Boolean usage limits
+max-struct-bools = 4                       # default: 3
+max-fn-params-bools = 3                    # default: 3
+
+# Variable naming
+single-char-binding-names-threshold = 4    # default: 4
+allowed-idents-below-min-chars = [
+    "x", "y", "dx", "dy", "dt",            # coordinates and delta time
+    "id", "ui", "io",                      # common abbreviations
+    "hs",                                  # high scores (project-specific)
+]
+
+# Other thresholds
+vec-box-size-threshold = 4096              # default: 4096
+max-trait-bounds = 3                       # default: 3
+
+
