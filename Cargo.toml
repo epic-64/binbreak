@@ -19,3 +19,32 @@ ratatui = "0.29.0"
 indoc = "2.0.7"
 color-eyre = "0.6.3"
 rand = "0.9.1"
+
+[lints.rust]
+unsafe_code = "forbid"
+unused_must_use = "warn"
+unused_imports = "warn"
+dead_code = "warn"
+
+[lints.clippy]
+# Lint groups - enable comprehensive checking
+pedantic = { level = "allow", priority = -1 }
+nursery = { level = "allow", priority = -1 }
+correctness = { level = "deny", priority = -1 }
+all = { level = "warn", priority = -1 }
+
+# Allow certain common patterns
+match_same_arms = "allow"
+
+# Complexity warnings (thresholds in clippy.toml)
+cognitive_complexity = "warn"
+too_many_arguments = "warn"
+too_many_lines = "warn"
+type_complexity = "warn"
+struct_excessive_bools = "warn"
+fn_params_excessive_bools = "warn"
+
+# Style preferences - encourage safer code
+enum_glob_use = "warn"
+unwrap_used = "warn"
+expect_used = "warn"

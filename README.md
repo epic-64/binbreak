@@ -1,3 +1,6 @@
+[![CI](https://github.com/epic-64/binbreak/workflows/CI/badge.svg)](https://github.com/epic-64/binbreak/actions)
+[![Built With Ratatui](https://ratatui.rs/built-with-ratatui/badge.svg)](https://ratatui.rs/)
+
 https://github.com/user-attachments/assets/4413fe8d-9a3f-4c00-9c1a-b9ca01a946fc
 
 Guess the correct number (from binary to decimal) before time runs out!
@@ -55,12 +58,25 @@ You may be inclined to not run binaries from the internet, and want to build fro
 cargo run --release
 ```
 
+# Contributing
+
+All pull requests are automatically checked by GitHub Actions CI, which runs tests,
+clippy, and formatting checks on Linux, Windows, and macOS.
+
 ## Test
 ```bash
 cargo test
 ```
 
-## License
-MIT license (LICENSE-MIT or http://opensource.org/licenses/MIT)
+## Lint
+```bash
+cargo clippy
+```
 
-[![Built With Ratatui](https://ratatui.rs/built-with-ratatui/badge.svg)](https://ratatui.rs/)
+## Format
+```bash
+cargo fmt
+```
+
+## License
+MIT license ([LICENSE](LICENSE) or http://opensource.org/licenses/MIT)
