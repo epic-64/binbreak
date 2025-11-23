@@ -91,25 +91,38 @@ fn render_start_screen(state: &mut StartMenuState, area: Rect, buf: &mut Buffer)
     // Render ASCII animation (handles paused state internally)
     state.animation.render_to_buffer(ascii_area, buf);
 
-    // Palette for menu flair
+    // Color scheme: progression from easy (green/cyan) to hard (yellow/red)
+    // Easy modes: cool binary/matrix green theme
+    // Normal: transition blue
+    // Master/Insane: hot warning colors
     let palette = [
-        Color::LightGreen,
-        Color::LightCyan,
-        Color::LightBlue,
-        Color::LightMagenta,
-        Color::LightYellow,
-        Color::LightRed,
+        Color::Rgb(100, 255, 100),  // easy: bright green
+        Color::Rgb(100, 255, 180),  // easy+16: green-cyan
+        Color::Rgb(100, 220, 255),  // easy+256: cyan
+        Color::Rgb(100, 180, 255),  // easy+4096: cyan-blue
+        Color::Rgb(120, 120, 255),  // normal: blue
+        Color::Rgb(255, 200, 50),   // master: orange-yellow
+        Color::Rgb(255, 80, 80),    // insane: red
     ];
 
     let items: Vec<ListItem> = upper_labels
         .into_iter()
         .enumerate()
         .map(|(i, label)| {
-            let marker = if i == selected { '»' } else { ' ' };
+            let is_selected = i == selected;
+            let marker = if is_selected { '»' } else { ' ' };
             let padded = format!("{:<width$}", label, width = max_len as usize);
             let line = format!("{marker} {padded}");
-            let style =
-                Style::default().fg(palette[i % palette.len()]).add_modifier(Modifier::BOLD);
+
+            let mut style = Style::default()
+                .fg(palette[i % palette.len()])
+                .add_modifier(Modifier::BOLD);
+
+            // Make selected item extra prominent with background highlight
+            if is_selected {
+                style = style.bg(Color::Rgb(40, 40, 40));
+            }
+
             ListItem::new(Span::styled(line, style))
         })
         .collect();
