@@ -1,3 +1,4 @@
+use crate::app::get_mode_color;
 use crate::keybinds;
 use crate::main_screen_widget::{MainScreenWidget, WidgetRef};
 use crate::utils::{When, center};
@@ -83,7 +84,16 @@ impl WidgetRef for BinaryNumbersPuzzle {
 
 impl BinaryNumbersPuzzle {
     fn render_stats_area(&self, area: Rect, buf: &mut Buffer) {
-        Block::bordered().title_alignment(Center).dark_gray().render(area, buf);
+        let mode_color = if let Some(stats) = &self.stats_snapshot {
+            get_mode_color(&stats.bits)
+        } else {
+            Color::DarkGray
+        };
+
+        Block::bordered()
+            .title_alignment(Center)
+            .border_style(Style::default().fg(mode_color))
+            .render(area, buf);
 
         if let Some(stats) = &self.stats_snapshot {
             let high_label = if stats.new_high_score {
@@ -94,10 +104,11 @@ impl BinaryNumbersPuzzle {
                 Span::styled(format!("Hi-Score: {}  ", stats.prev_high_score), style)
             };
 
+            let mode_color = get_mode_color(&stats.bits);
             let line1 = Line::from(vec![
                 Span::styled(
                     format!("Mode: {}  ", stats.bits.label()),
-                    Style::default().fg(Color::Yellow),
+                    Style::default().fg(mode_color),
                 ),
                 high_label,
             ]);
@@ -134,9 +145,15 @@ impl BinaryNumbersPuzzle {
         let [inner] =
             Layout::horizontal([Constraint::Percentage(100)]).flex(Flex::Center).areas(area);
 
+        let mode_color = if let Some(stats) = &self.stats_snapshot {
+            get_mode_color(&stats.bits)
+        } else {
+            Color::DarkGray
+        };
+
         Block::bordered()
             .border_type(Double)
-            .border_style(Style::default().dark_gray())
+            .border_style(Style::default().fg(mode_color))
             .render(inner, buf);
 
         let binary_string = self.current_to_binary_string();
@@ -212,8 +229,14 @@ impl BinaryNumbersPuzzle {
     }
 
     fn render_status(&self, area: Rect, buf: &mut Buffer) {
+        let mode_color = if let Some(stats) = &self.stats_snapshot {
+            get_mode_color(&stats.bits)
+        } else {
+            Color::DarkGray
+        };
+
         Block::bordered()
-            .dark_gray()
+            .border_style(Style::default().fg(mode_color))
             .title("Status")
             .title_alignment(Center)
             .title_style(Style::default().white())
@@ -255,8 +278,14 @@ impl BinaryNumbersPuzzle {
             Color::Red
         };
 
+        let mode_color = if let Some(stats) = &self.stats_snapshot {
+            get_mode_color(&stats.bits)
+        } else {
+            Color::DarkGray
+        };
+
         let time_block = Block::bordered()
-            .dark_gray()
+            .border_style(Style::default().fg(mode_color))
             .title("Time Remaining")
             .title_style(Style::default().white())
             .title_alignment(Center);
@@ -277,7 +306,15 @@ impl BinaryNumbersPuzzle {
     }
 
     fn render_instructions(&self, area: Rect, buf: &mut Buffer) {
-        Block::bordered().dark_gray().render(area, buf);
+        let mode_color = if let Some(stats) = &self.stats_snapshot {
+            get_mode_color(&stats.bits)
+        } else {
+            Color::DarkGray
+        };
+
+        Block::bordered()
+            .border_style(Style::default().fg(mode_color))
+            .render(area, buf);
 
         let instruction_spans: Vec<Span> = [
             hotkey_span("Left Right", "select  "),

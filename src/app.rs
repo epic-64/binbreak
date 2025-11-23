@@ -21,7 +21,21 @@ fn get_last_selected_index() -> usize {
 }
 
 fn set_last_selected_index(index: usize) {
-    LAST_SELECTED_INDEX.store(index, Ordering::Relaxed);
+    LAST_SELECTED_INDEX.store(index, Ordering::Relaxed)
+}
+
+/// Get the color associated with a specific difficulty level / game mode
+pub fn get_mode_color(bits: &Bits) -> Color {
+    // Color scheme: progression from easy (green/cyan) to hard (yellow/red)
+    match bits {
+        Bits::Four => Color::Rgb(100, 255, 100),        // green
+        Bits::FourShift4 => Color::Rgb(100, 255, 180),  // cyan
+        Bits::FourShift8 => Color::Rgb(100, 220, 255),  // light blue
+        Bits::FourShift12 => Color::Rgb(100, 180, 255), // blue
+        Bits::Eight => Color::Rgb(125, 120, 255),       // royal blue
+        Bits::Twelve => Color::Rgb(200, 100, 255),      // purple
+        Bits::Sixteen => Color::Rgb(255, 80, 150),      // pink
+    }
 }
 
 #[derive(Copy, Clone, PartialEq, Debug)]
@@ -88,19 +102,11 @@ fn render_start_screen(state: &mut StartMenuState, area: Rect, buf: &mut Buffer)
         list_height.min(area.height.saturating_sub(list_y - area.y)),
     );
 
-    // Color scheme: progression from easy (green/cyan) to hard (yellow/red)
-    let palette = [
-        Color::Rgb(100, 255, 100), // green
-        Color::Rgb(100, 255, 180), // cyan
-        Color::Rgb(100, 220, 255),
-        Color::Rgb(100, 180, 255), // blue
-        Color::Rgb(125, 120, 255), // royal blue
-        Color::Rgb(200, 100, 255), // purple
-        Color::Rgb(255, 80, 150),  // pink
-    ];
+    // Get color for the selected menu item
+    let selected_color = get_mode_color(&state.items[selected].1);
 
     // Update animation color to match selected menu item
-    state.animation.set_highlight_color(palette[selected % palette.len()]);
+    state.animation.set_highlight_color(selected_color);
 
     // Render ASCII animation (handles paused state internally)
     state.animation.render_to_buffer(ascii_area, buf);
@@ -114,8 +120,8 @@ fn render_start_screen(state: &mut StartMenuState, area: Rect, buf: &mut Buffer)
             let padded = format!("{:<width$}", label, width = max_len as usize);
             let line = format!("{marker} {padded}");
 
-            let mut style =
-                Style::default().fg(palette[i % palette.len()]).add_modifier(Modifier::BOLD);
+            let item_color = get_mode_color(&state.items[i].1);
+            let mut style = Style::default().fg(item_color).add_modifier(Modifier::BOLD);
 
             // Make selected item extra prominent with background highlight
             if is_selected {
