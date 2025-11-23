@@ -255,7 +255,7 @@ fn ascii_animation() -> ProceduralAnimationWidget {
     let total_range = end_offset - start_offset;
 
     // Color function that calculates colors on-the-fly based on animation progress
-    let color_fn = move |x: usize, y: usize, progress: f32, highlight_color: Color| -> Color {
+    let color_fn = move |x: usize, y: usize, progress: f32, cycle: usize, highlight_color: Color| -> Color {
         let offset = start_offset + progress * total_range;
         let diag_pos = (x + y) as f32;
         let dist_from_strip = (diag_pos - offset).abs();
@@ -267,23 +267,43 @@ fn ascii_animation() -> ProceduralAnimationWidget {
         }
     };
 
-    // Character function that replaces characters in the green strip with static '0' or '1'
-    let char_fn = move |x: usize, y: usize, progress: f32, original_char: char| -> char {
+    // Character function that permanently replaces characters with '0' or '1' on first pass,
+    // then reverses them back to original on second pass, creating an infinite loop
+    let char_fn = move |x: usize, y: usize, progress: f32, cycle: usize, original_char: char| -> char {
         let offset = start_offset + progress * total_range;
         let diag_pos = (x + y) as f32;
-        let dist_from_strip = (diag_pos - offset).abs();
 
-        if dist_from_strip < strip_width {
-            // Use a hash function based only on position (no frame/progress)
-            // This creates a static pattern that doesn't change
-            let mut hash = x.wrapping_mul(2654435761);
-            hash ^= y.wrapping_mul(2246822519);
-            hash = hash.wrapping_mul(668265263);
-            hash ^= hash >> 15;
+        // Hash function to determine if character is '0' or '1'
+        let mut position_hash = x.wrapping_mul(2654435761);
+        position_hash ^= y.wrapping_mul(2246822519);
+        position_hash = position_hash.wrapping_mul(668265263);
+        position_hash ^= position_hash >> 15;
 
-            if (hash & 1) == 0 { '0' } else { '1' }
+        let mut binary_hash = position_hash.wrapping_mul(1597334677);
+        binary_hash ^= binary_hash >> 16;
+        let binary_char = if (binary_hash & 1) == 0 { '0' } else { '1' };
+
+        // Even cycles (0, 2, 4...): transform original -> binary
+        // Odd cycles (1, 3, 5...): transform binary -> original
+        let is_forward_pass = cycle % 2 == 0;
+
+        // Check if the strip has passed this character yet
+        let has_strip_passed = diag_pos < offset;
+
+        if is_forward_pass {
+            // Forward pass: if strip has passed, show binary; otherwise show original
+            if has_strip_passed {
+                binary_char
+            } else {
+                original_char
+            }
         } else {
-            original_char
+            // Reverse pass: if strip has passed, show original; otherwise show binary
+            if has_strip_passed {
+                original_char
+            } else {
+                binary_char
+            }
         }
     };
 

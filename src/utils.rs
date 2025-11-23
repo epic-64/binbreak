@@ -266,9 +266,10 @@ pub struct ProceduralAnimationWidget {
     start_time: Instant,
     paused: bool,
     paused_progress: f32,
+    paused_cycle: usize,
     highlight_color: Color, // The color for the animated strip
-    color_fn: Box<dyn Fn(usize, usize, f32, Color) -> Color>, // (x, y, progress, highlight_color) -> Color
-    char_fn: Option<Box<dyn Fn(usize, usize, f32, char) -> char>>, // (x, y, progress, original_char) -> char
+    color_fn: Box<dyn Fn(usize, usize, f32, usize, Color) -> Color>, // (x, y, progress, cycle, highlight_color) -> Color
+    char_fn: Option<Box<dyn Fn(usize, usize, f32, usize, char) -> char>>, // (x, y, progress, cycle, original_char) -> char
 }
 
 impl ProceduralAnimationWidget {
@@ -276,7 +277,7 @@ impl ProceduralAnimationWidget {
         art: String,
         num_frames: usize,
         frame_duration: Duration,
-        color_fn: impl Fn(usize, usize, f32, Color) -> Color + 'static,
+        color_fn: impl Fn(usize, usize, f32, usize, Color) -> Color + 'static,
     ) -> Self {
         let art_lines: Vec<&str> = art.lines().collect();
         let height = art_lines.len() as u16;
@@ -292,6 +293,7 @@ impl ProceduralAnimationWidget {
             start_time: Instant::now(),
             paused: false,
             paused_progress: 0.0,
+            paused_cycle: 0,
             highlight_color: Color::LightGreen, // Default color
             color_fn: Box::new(color_fn),
             char_fn: None,
@@ -300,7 +302,7 @@ impl ProceduralAnimationWidget {
 
     pub fn with_char_fn(
         mut self,
-        char_fn: impl Fn(usize, usize, f32, char) -> char + 'static,
+        char_fn: impl Fn(usize, usize, f32, usize, char) -> char + 'static,
     ) -> Self {
         self.char_fn = Some(Box::new(char_fn));
         self
@@ -313,7 +315,9 @@ impl ProceduralAnimationWidget {
 
     pub fn pause(&mut self) {
         if !self.paused {
-            self.paused_progress = self.get_animation_progress();
+            let (progress, cycle) = self.get_animation_progress_and_cycle();
+            self.paused_progress = progress;
+            self.paused_cycle = cycle;
             self.paused = true;
         }
     }
@@ -322,8 +326,10 @@ impl ProceduralAnimationWidget {
         if self.paused {
             // Adjust start_time so that the animation continues from paused_progress
             let animation_duration = self.frame_duration * self.num_frames as u32;
+            let total_cycle_duration = animation_duration + self.pause_at_end;
             let elapsed_at_pause = Duration::from_millis(
-                (self.paused_progress * animation_duration.as_millis() as f32) as u64,
+                (self.paused_cycle as f32 * total_cycle_duration.as_millis() as f32
+                    + self.paused_progress * animation_duration.as_millis() as f32) as u64,
             );
             self.start_time = Instant::now() - elapsed_at_pause;
             self.paused = false;
@@ -351,7 +357,8 @@ impl ProceduralAnimationWidget {
     }
 
     pub fn get_current_progress(&self) -> f32 {
-        self.get_animation_progress()
+        let (progress, _) = self.get_animation_progress_and_cycle();
+        progress
     }
 
     /// Set the highlight color for the animation
@@ -359,43 +366,50 @@ impl ProceduralAnimationWidget {
         self.highlight_color = color;
     }
 
-    fn get_animation_progress(&self) -> f32 {
+    fn get_animation_progress_and_cycle(&self) -> (f32, usize) {
         if self.paused {
-            return self.paused_progress;
+            return (self.paused_progress, self.paused_cycle);
         }
 
         let elapsed = self.start_time.elapsed();
         let animation_duration = self.frame_duration * self.num_frames as u32;
         let total_cycle_duration = animation_duration + self.pause_at_end;
 
+        let cycle = (elapsed.as_millis() / total_cycle_duration.as_millis()) as usize;
         let cycle_time = elapsed.as_millis() % total_cycle_duration.as_millis();
 
         // If we're in the pause period, return 1.0 (end of animation)
         if cycle_time >= animation_duration.as_millis() {
-            return 1.0;
+            return (1.0, cycle);
         }
 
         // Otherwise calculate progress through animation
-        cycle_time as f32 / animation_duration.as_millis() as f32
+        let progress = cycle_time as f32 / animation_duration.as_millis() as f32;
+        (progress, cycle)
+    }
+
+    fn get_animation_progress(&self) -> f32 {
+        let (progress, _) = self.get_animation_progress_and_cycle();
+        progress
     }
 
     pub fn render_to_buffer(&self, area: Rect, buf: &mut Buffer) {
-        let progress = self.get_animation_progress();
-        self.render_to_buffer_at_progress(area, buf, progress);
+        let (progress, cycle) = self.get_animation_progress_and_cycle();
+        self.render_to_buffer_at_progress(area, buf, progress, cycle);
     }
 
-    pub fn render_to_buffer_at_progress(&self, area: Rect, buf: &mut Buffer, progress: f32) {
+    pub fn render_to_buffer_at_progress(&self, area: Rect, buf: &mut Buffer, progress: f32, cycle: usize) {
         for (y, line) in self.art.lines().enumerate() {
             for (x, ch) in line.chars().enumerate() {
                 if ch == ' ' {
                     continue; // Skip spaces
                 }
 
-                let color = (self.color_fn)(x, y, progress, self.highlight_color);
+                let color = (self.color_fn)(x, y, progress, cycle, self.highlight_color);
 
                 // Apply character transformation if char_fn is provided
                 let display_char = if let Some(ref char_fn) = self.char_fn {
-                    char_fn(x, y, progress, ch)
+                    char_fn(x, y, progress, cycle, ch)
                 } else {
                     ch
                 };
