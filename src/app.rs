@@ -1,7 +1,7 @@
 use crate::binary_numbers::{BinaryNumbersGame, Bits};
 use crate::keybinds;
 use crate::main_screen_widget::MainScreenWidget;
-use crate::utils::{AsciiArtWidget, AsciiCells};
+use crate::utils::{ProceduralAnimationWidget};
 use crossterm::event;
 use crossterm::event::{Event, KeyCode, KeyEvent, KeyEventKind, KeyModifiers};
 use indoc::indoc;
@@ -10,10 +10,9 @@ use ratatui::layout::Rect;
 use ratatui::prelude::{Color, Modifier, Span, Style, Widget};
 use ratatui::widgets::{List, ListItem, ListState};
 use std::cmp;
-use std::collections::HashMap;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::thread;
-use std::time::Instant;
+use std::time::{Duration, Instant};
 
 static LAST_SELECTED_INDEX: AtomicUsize = AtomicUsize::new(4);
 
@@ -48,17 +47,17 @@ fn handle_start_input(state: &mut StartMenuState, key: KeyEvent) -> Option<AppSt
             return Some(AppState::Playing(BinaryNumbersGame::new(bits)));
         },
         x if keybinds::is_exit(x) => return Some(AppState::Exit),
+        KeyEvent { code: KeyCode::Char('a' | 'A'), .. } => state.toggle_animation(),
         _ => {},
     }
     None
 }
 
+
 fn render_start_screen(state: &mut StartMenuState, area: Rect, buf: &mut Buffer) {
-    // Build ASCII art to obtain real dimensions
-    let cells = ascii_art_cells();
-    let ascii_width = cells.get_width();
-    let ascii_height = cells.get_height();
-    let ascii_widget = AsciiArtWidget::new(cells);
+    // Get animation dimensions
+    let ascii_width = state.animation.get_width();
+    let ascii_height = state.animation.get_height();
 
     let selected = state.selected_index();
     let upper_labels: Vec<String> = state.items.iter().map(|(l, _)| l.to_uppercase()).collect();
@@ -90,8 +89,8 @@ fn render_start_screen(state: &mut StartMenuState, area: Rect, buf: &mut Buffer)
         list_height.min(area.height.saturating_sub(list_y - area.y)),
     );
 
-    // Render ASCII art
-    ascii_widget.render(ascii_area, buf);
+    // Render ASCII animation (handles paused state internally)
+    state.animation.render_to_buffer(ascii_area, buf);
 
     // Palette for menu flair
     let palette = [
@@ -193,10 +192,17 @@ pub fn run_app(terminal: &mut ratatui::DefaultTerminal) -> color_eyre::Result<()
                 // performance mode: block thread until an input event occurs
                 handle_crossterm_events(&mut app_state)?;
             }
-        } else {
-            // For non-playing states (e.g., start menu), use performance mode
-            // to block until input and minimize CPU usage
-            handle_crossterm_events(&mut app_state)?;
+        } else if let AppState::Start(menu) = &app_state {
+            // For start menu, use real-time mode only if animation is running
+            if !menu.animation.is_paused() {
+                let poll_timeout = cmp::min(dt, target_frame_duration);
+                if event::poll(poll_timeout)? {
+                    handle_crossterm_events(&mut app_state)?;
+                }
+            } else {
+                // Animation paused, use performance mode to save CPU
+                handle_crossterm_events(&mut app_state)?;
+            }
         }
 
         // cap frame rate
@@ -208,52 +214,76 @@ pub fn run_app(terminal: &mut ratatui::DefaultTerminal) -> color_eyre::Result<()
     Ok(())
 }
 
-fn ascii_art_cells() -> AsciiCells {
+fn ascii_animation() -> ProceduralAnimationWidget {
     let art = indoc! {r#"
          ,,        ,,              ,,
-        *MM        db             *MM                                `7MM
+        *MM        db             *MM      [a: toggle animation]     `7MM
          MM                        MM                                  MM
          MM,dMMb.`7MM  `7MMpMMMb.  MM,dMMb.`7Mb,od8 .gP"Ya   ,6"Yb.    MM  ,MP'
          MM    `Mb MM    MM    MM  MM    `Mb MM' "',M'   Yb 8)   MM    MM ;Y
          MM     M8 MM    MM    MM  MM     M8 MM    8M""""""  ,pm9MM    MM;Mm
          MM.   ,M9 MM    MM    MM  MM.   ,M9 MM    YM.    , 8M   MM    MM `Mb.
          P^YbmdP'.JMML..JMML  JMML.P^YbmdP'.JMML.   `Mbmmd' `Moo9^Yo..JMML. YA.
-    "#};
+    "#}.to_string();
 
-    let colors = indoc! {r#"
-         ,,        ,,              ,,
-        *MM        db             *MM                                `7MM
-         MM                        MM                                  MM
-         MM,dMMb.`7MM  `7MMpMMMb.  MM,dMMb.`7Mb,od8 .gP"Ya   ,6"Yb.    MM  ,MP'
-         MM    `Mb MM    MM    MM  MM    `Mb MM' "',M'   Yb 8)   MM    MM ;Y
-         MM     M8 MM    MM    MM  MM     M8 MM    8M""""""  ,pm9MM    MM;Mm
-         MM.   ,M9 MM    MM    MM  MM.   ,M9 MM    YM.    , 8M   MM    MM `Mb.
-         P^YbmdP'.JMML..JMML  JMML.P^YbmdP'.JMML.   `Mbmmd' `Moo9^Yo..JMML. YA.
-    "#};
+    // Get dimensions for calculations
+    let art_lines: Vec<&str> = art.lines().collect();
+    let height = art_lines.len();
+    let width = art_lines.iter().map(|line| line.len()).max().unwrap_or(0);
 
-    let color_map = HashMap::from([
-        ('M', Color::White),
-        ('b', Color::LightYellow),
-        ('d', Color::LightCyan),
-        ('Y', Color::LightGreen),
-        ('8', Color::LightMagenta),
-        ('*', Color::Magenta),
-        ('`', Color::Cyan),
-        ('6', Color::Green),
-        ('9', Color::Red),
-        ('(', Color::Blue),
-        (')', Color::Blue),
-        (' ', Color::Black),
-    ]);
+    let strip_width = 8.0;
+    let start_offset = -strip_width;
+    let end_offset = (width + height) as f32 + strip_width;
+    let total_range = end_offset - start_offset;
 
-    let default_color = Color::LightBlue;
-    AsciiCells::from(art, colors, &color_map, default_color)
+    // Color function that calculates colors on-the-fly based on animation progress
+    let color_fn = move |x: usize, y: usize, progress: f32| -> Color {
+        let offset = start_offset + progress * total_range;
+        let diag_pos = (x + y) as f32;
+        let dist_from_strip = (diag_pos - offset).abs();
+
+        if dist_from_strip < strip_width {
+            Color::LightGreen
+        } else {
+            Color::DarkGray
+        }
+    };
+
+    // Character function that replaces characters in the green strip with static '0' or '1'
+    let char_fn = move |x: usize, y: usize, progress: f32, original_char: char| -> char {
+        let offset = start_offset + progress * total_range;
+        let diag_pos = (x + y) as f32;
+        let dist_from_strip = (diag_pos - offset).abs();
+
+        if dist_from_strip < strip_width {
+            // Use a hash function based only on position (no frame/progress)
+            // This creates a static pattern that doesn't change
+            let mut hash = x.wrapping_mul(2654435761);
+            hash ^= y.wrapping_mul(2246822519);
+            hash = hash.wrapping_mul(668265263);
+            hash ^= hash >> 15;
+
+            if (hash & 1) == 0 { '0' } else { '1' }
+        } else {
+            original_char
+        }
+    };
+
+    ProceduralAnimationWidget::new(
+        art,
+        50, // 50 frames worth of timing
+        Duration::from_millis(50),
+        color_fn,
+    )
+    .with_char_fn(char_fn)
+    .with_pause_at_end(Duration::from_secs(2))
 }
 
 // Start menu state
 struct StartMenuState {
     items: Vec<(String, Bits)>,
     list_state: ListState,
+    animation: ProceduralAnimationWidget,
 }
 
 impl StartMenuState {
@@ -272,7 +302,11 @@ impl StartMenuState {
             ("insane     (16 bits)".to_string(), Bits::Sixteen),
         ];
 
-        Self { items, list_state: ListState::default().with_selected(Some(selected_index)) }
+        Self {
+            items,
+            list_state: ListState::default().with_selected(Some(selected_index)),
+            animation: ascii_animation(),
+        }
     }
 
     fn selected_index(&self) -> usize {
@@ -286,5 +320,8 @@ impl StartMenuState {
     }
     fn select_previous(&mut self) {
         self.list_state.select_previous();
+    }
+    fn toggle_animation(&mut self) {
+        self.animation.toggle_pause();
     }
 }
