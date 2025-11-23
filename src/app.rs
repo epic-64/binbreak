@@ -88,22 +88,22 @@ fn render_start_screen(state: &mut StartMenuState, area: Rect, buf: &mut Buffer)
         list_height.min(area.height.saturating_sub(list_y - area.y)),
     );
 
+    // Color scheme: progression from easy (green/cyan) to hard (yellow/red)
+    let palette = [
+        Color::Rgb(100, 255, 100), // green
+        Color::Rgb(100, 255, 180), // cyan
+        Color::Rgb(100, 220, 255),
+        Color::Rgb(100, 180, 255), // blue
+        Color::Rgb(125, 120, 255), // royal blue
+        Color::Rgb(200, 100, 255), // purple
+        Color::Rgb(255, 80, 150),  // pink
+    ];
+
+    // Update animation color to match selected menu item
+    state.animation.set_highlight_color(palette[selected % palette.len()]);
+
     // Render ASCII animation (handles paused state internally)
     state.animation.render_to_buffer(ascii_area, buf);
-
-    // Color scheme: progression from easy (green/cyan) to hard (yellow/red)
-    // Easy modes: cool binary/matrix green theme
-    // Normal: transition blue
-    // Master/Insane: hot warning colors
-    let palette = [
-        Color::Rgb(100, 255, 100),  // easy: bright green
-        Color::Rgb(100, 255, 180),  // easy+16: green-cyan
-        Color::Rgb(100, 220, 255),  // easy+256: cyan
-        Color::Rgb(100, 180, 255),  // easy+4096: cyan-blue
-        Color::Rgb(120, 120, 255),  // normal: blue
-        Color::Rgb(255, 200, 50),   // master: orange-yellow
-        Color::Rgb(255, 80, 80),    // insane: red
-    ];
 
     let items: Vec<ListItem> = upper_labels
         .into_iter()
@@ -114,9 +114,8 @@ fn render_start_screen(state: &mut StartMenuState, area: Rect, buf: &mut Buffer)
             let padded = format!("{:<width$}", label, width = max_len as usize);
             let line = format!("{marker} {padded}");
 
-            let mut style = Style::default()
-                .fg(palette[i % palette.len()])
-                .add_modifier(Modifier::BOLD);
+            let mut style =
+                Style::default().fg(palette[i % palette.len()]).add_modifier(Modifier::BOLD);
 
             // Make selected item extra prominent with background highlight
             if is_selected {
@@ -250,13 +249,13 @@ fn ascii_animation() -> ProceduralAnimationWidget {
     let total_range = end_offset - start_offset;
 
     // Color function that calculates colors on-the-fly based on animation progress
-    let color_fn = move |x: usize, y: usize, progress: f32| -> Color {
+    let color_fn = move |x: usize, y: usize, progress: f32, highlight_color: Color| -> Color {
         let offset = start_offset + progress * total_range;
         let diag_pos = (x + y) as f32;
         let dist_from_strip = (diag_pos - offset).abs();
 
         if dist_from_strip < strip_width {
-            Color::LightGreen
+            highlight_color
         } else {
             Color::DarkGray
         }

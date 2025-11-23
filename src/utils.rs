@@ -266,7 +266,8 @@ pub struct ProceduralAnimationWidget {
     start_time: Instant,
     paused: bool,
     paused_progress: f32,
-    color_fn: Box<dyn Fn(usize, usize, f32) -> Color>, // (x, y, progress) -> Color
+    highlight_color: Color, // The color for the animated strip
+    color_fn: Box<dyn Fn(usize, usize, f32, Color) -> Color>, // (x, y, progress, highlight_color) -> Color
     char_fn: Option<Box<dyn Fn(usize, usize, f32, char) -> char>>, // (x, y, progress, original_char) -> char
 }
 
@@ -275,7 +276,7 @@ impl ProceduralAnimationWidget {
         art: String,
         num_frames: usize,
         frame_duration: Duration,
-        color_fn: impl Fn(usize, usize, f32) -> Color + 'static,
+        color_fn: impl Fn(usize, usize, f32, Color) -> Color + 'static,
     ) -> Self {
         let art_lines: Vec<&str> = art.lines().collect();
         let height = art_lines.len() as u16;
@@ -291,6 +292,7 @@ impl ProceduralAnimationWidget {
             start_time: Instant::now(),
             paused: false,
             paused_progress: 0.0,
+            highlight_color: Color::LightGreen, // Default color
             color_fn: Box::new(color_fn),
             char_fn: None,
         }
@@ -352,6 +354,11 @@ impl ProceduralAnimationWidget {
         self.get_animation_progress()
     }
 
+    /// Set the highlight color for the animation
+    pub fn set_highlight_color(&mut self, color: Color) {
+        self.highlight_color = color;
+    }
+
     fn get_animation_progress(&self) -> f32 {
         if self.paused {
             return self.paused_progress;
@@ -384,7 +391,7 @@ impl ProceduralAnimationWidget {
                     continue; // Skip spaces
                 }
 
-                let color = (self.color_fn)(x, y, progress);
+                let color = (self.color_fn)(x, y, progress, self.highlight_color);
 
                 // Apply character transformation if char_fn is provided
                 let display_char = if let Some(ref char_fn) = self.char_fn {
