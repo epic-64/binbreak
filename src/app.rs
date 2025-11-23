@@ -334,10 +334,22 @@ impl StartMenuState {
         self.items[self.selected_index()].1.clone()
     }
     fn select_next(&mut self) {
-        self.list_state.select_next();
+        let current = self.selected_index();
+        let next = if current + 1 >= self.items.len() {
+            current // stay at last item
+        } else {
+            current + 1
+        };
+        self.list_state.select(Some(next));
     }
     fn select_previous(&mut self) {
-        self.list_state.select_previous();
+        let current = self.selected_index();
+        let prev = if current == 0 {
+            0 // stay at first item
+        } else {
+            current - 1
+        };
+        self.list_state.select(Some(prev));
     }
     fn toggle_animation(&mut self) {
         self.animation.toggle_pause();
