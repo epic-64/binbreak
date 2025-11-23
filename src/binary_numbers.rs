@@ -694,13 +694,13 @@ impl Bits {
     }
     pub const fn label(&self) -> &'static str {
         match self {
-            Self::Four => "4 bits",
-            Self::FourShift4 => "4 bits*16",
-            Self::FourShift8 => "4 bits*256",
-            Self::FourShift12 => "4 bits*4096",
-            Self::Eight => "8 bits",
-            Self::Twelve => "12 bits",
-            Self::Sixteen => "16 bits",
+            Self::Four => "4 bit",
+            Self::FourShift4 => "4 bit*16",
+            Self::FourShift8 => "4 bit*256",
+            Self::FourShift12 => "4 bit*4096",
+            Self::Eight => "8 bit",
+            Self::Twelve => "12 bit",
+            Self::Sixteen => "16 bit",
         }
     }
 }

@@ -305,13 +305,13 @@ impl StartMenuState {
 
     fn with_selected(selected_index: usize) -> Self {
         let items = vec![
-            ("easy       (4 bits)".to_string(), Bits::Four),
-            ("easy+16    (4 bits*16)".to_string(), Bits::FourShift4),
-            ("easy+256   (4 bits*256)".to_string(), Bits::FourShift8),
-            ("easy+4096  (4 bits*4096)".to_string(), Bits::FourShift12),
-            ("normal     (8 bits)".to_string(), Bits::Eight),
-            ("master     (12 bits)".to_string(), Bits::Twelve),
-            ("insane     (16 bits)".to_string(), Bits::Sixteen),
+            ("nibble_0    4 bit".to_string(), Bits::Four),
+            ("nibble_1    4 bit*16".to_string(), Bits::FourShift4),
+            ("nibble_2    4 bit*256".to_string(), Bits::FourShift8),
+            ("nibble_3    4 bit*4096".to_string(), Bits::FourShift12),
+            ("byte        8 bit".to_string(), Bits::Eight),
+            ("hexlet     12 bit".to_string(), Bits::Twelve),
+            ("word       16 bit".to_string(), Bits::Sixteen),
         ];
 
         Self {
