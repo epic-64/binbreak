@@ -1,7 +1,7 @@
 use crate::binary_numbers::{BinaryNumbersGame, Bits};
 use crate::keybinds;
 use crate::main_screen_widget::MainScreenWidget;
-use crate::utils::{ProceduralAnimationWidget};
+use crate::utils::ProceduralAnimationWidget;
 use crossterm::event;
 use crossterm::event::{Event, KeyCode, KeyEvent, KeyEventKind, KeyModifiers};
 use indoc::indoc;
@@ -52,7 +52,6 @@ fn handle_start_input(state: &mut StartMenuState, key: KeyEvent) -> Option<AppSt
     }
     None
 }
-
 
 fn render_start_screen(state: &mut StartMenuState, area: Rect, buf: &mut Buffer) {
     // Get animation dimensions
@@ -224,7 +223,8 @@ fn ascii_animation() -> ProceduralAnimationWidget {
          MM     M8 MM    MM    MM  MM     M8 MM    8M""""""  ,pm9MM    MM;Mm
          MM.   ,M9 MM    MM    MM  MM.   ,M9 MM    YM.    , 8M   MM    MM `Mb.
          P^YbmdP'.JMML..JMML  JMML.P^YbmdP'.JMML.   `Mbmmd' `Moo9^Yo..JMML. YA.
-    "#}.to_string();
+    "#}
+    .to_string();
 
     // Get dimensions for calculations
     let art_lines: Vec<&str> = art.lines().collect();

@@ -296,7 +296,10 @@ impl ProceduralAnimationWidget {
         }
     }
 
-    pub fn with_char_fn(mut self, char_fn: impl Fn(usize, usize, f32, char) -> char + 'static) -> Self {
+    pub fn with_char_fn(
+        mut self,
+        char_fn: impl Fn(usize, usize, f32, char) -> char + 'static,
+    ) -> Self {
         self.char_fn = Some(Box::new(char_fn));
         self
     }
@@ -318,7 +321,7 @@ impl ProceduralAnimationWidget {
             // Adjust start_time so that the animation continues from paused_progress
             let animation_duration = self.frame_duration * self.num_frames as u32;
             let elapsed_at_pause = Duration::from_millis(
-                (self.paused_progress * animation_duration.as_millis() as f32) as u64
+                (self.paused_progress * animation_duration.as_millis() as f32) as u64,
             );
             self.start_time = Instant::now() - elapsed_at_pause;
             self.paused = false;
@@ -336,7 +339,6 @@ impl ProceduralAnimationWidget {
     pub fn is_paused(&self) -> bool {
         self.paused
     }
-
 
     pub fn get_width(&self) -> u16 {
         self.width
