@@ -21,8 +21,8 @@ pub struct ProceduralAnimationWidget {
     paused: bool,
     paused_progress: f32,
     paused_cycle: usize,
-    highlight_color: Color, // The color for the animated strip
-    color_fn: ColorFn, // (x, y, progress, cycle, highlight_color) -> Color
+    highlight_color: Color,  // The color for the animated strip
+    color_fn: ColorFn,       // (x, y, progress, cycle, highlight_color) -> Color
     char_fn: Option<CharFn>, // (x, y, progress, cycle, original_char) -> char
 }
 
@@ -83,7 +83,8 @@ impl ProceduralAnimationWidget {
             let total_cycle_duration = animation_duration + self.pause_at_end;
             let elapsed_at_pause = Duration::from_millis(
                 (self.paused_cycle as f32 * total_cycle_duration.as_millis() as f32
-                    + self.paused_progress * animation_duration.as_millis() as f32) as u64,
+                    + self.paused_progress * animation_duration.as_millis() as f32)
+                    as u64,
             );
             self.start_time = Instant::now() - elapsed_at_pause;
             self.paused = false;
@@ -142,7 +143,13 @@ impl ProceduralAnimationWidget {
         self.render_to_buffer_at_progress(area, buf, progress, cycle);
     }
 
-    pub fn render_to_buffer_at_progress(&self, area: Rect, buf: &mut Buffer, progress: f32, cycle: usize) {
+    pub fn render_to_buffer_at_progress(
+        &self,
+        area: Rect,
+        buf: &mut Buffer,
+        progress: f32,
+        cycle: usize,
+    ) {
         for (y, line) in self.art.lines().enumerate() {
             for (x, ch) in line.chars().enumerate() {
                 if ch == ' ' {
