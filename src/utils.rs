@@ -2,6 +2,12 @@ use ratatui::layout::Flex;
 use ratatui::prelude::*;
 use std::time::{Duration, Instant};
 
+/// Type alias for the color function used in procedural animations
+type ColorFn = Box<dyn Fn(usize, usize, f32, usize, Color) -> Color>;
+
+/// Type alias for the character transformation function
+type CharFn = Box<dyn Fn(usize, usize, f32, usize, char) -> char>;
+
 /// A procedural animation widget that calculates colors on-the-fly
 /// This is much more memory efficient than storing multiple frames
 pub struct ProceduralAnimationWidget {
@@ -16,8 +22,8 @@ pub struct ProceduralAnimationWidget {
     paused_progress: f32,
     paused_cycle: usize,
     highlight_color: Color, // The color for the animated strip
-    color_fn: Box<dyn Fn(usize, usize, f32, usize, Color) -> Color>, // (x, y, progress, cycle, highlight_color) -> Color
-    char_fn: Option<Box<dyn Fn(usize, usize, f32, usize, char) -> char>>, // (x, y, progress, cycle, original_char) -> char
+    color_fn: ColorFn, // (x, y, progress, cycle, highlight_color) -> Color
+    char_fn: Option<CharFn>, // (x, y, progress, cycle, original_char) -> char
 }
 
 impl ProceduralAnimationWidget {
@@ -104,11 +110,6 @@ impl ProceduralAnimationWidget {
         self.height
     }
 
-    pub fn get_current_progress(&self) -> f32 {
-        let (progress, _) = self.get_animation_progress_and_cycle();
-        progress
-    }
-
     /// Set the highlight color for the animation
     pub fn set_highlight_color(&mut self, color: Color) {
         self.highlight_color = color;
@@ -134,11 +135,6 @@ impl ProceduralAnimationWidget {
         // Otherwise calculate progress through animation
         let progress = cycle_time as f32 / animation_duration.as_millis() as f32;
         (progress, cycle)
-    }
-
-    fn get_animation_progress(&self) -> f32 {
-        let (progress, _) = self.get_animation_progress_and_cycle();
-        progress
     }
 
     pub fn render_to_buffer(&self, area: Rect, buf: &mut Buffer) {

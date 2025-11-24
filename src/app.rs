@@ -7,7 +7,7 @@ use crossterm::event::{Event, KeyCode, KeyEvent, KeyEventKind, KeyModifiers};
 use indoc::indoc;
 use ratatui::buffer::Buffer;
 use ratatui::layout::Rect;
-use ratatui::prelude::{Color, Modifier, Span, Style, Widget};
+use ratatui::prelude::{Color, Modifier, Span, Style};
 use ratatui::widgets::{List, ListItem, ListState};
 use std::cmp;
 use std::sync::atomic::{AtomicUsize, Ordering};
@@ -255,7 +255,7 @@ fn ascii_animation() -> ProceduralAnimationWidget {
     let total_range = end_offset - start_offset;
 
     // Color function that calculates colors on-the-fly based on animation progress
-    let color_fn = move |x: usize, y: usize, progress: f32, cycle: usize, highlight_color: Color| -> Color {
+    let color_fn = move |x: usize, y: usize, progress: f32, _cycle: usize, highlight_color: Color| -> Color {
         let offset = start_offset + progress * total_range;
         let diag_pos = (x + y) as f32;
         let dist_from_strip = (diag_pos - offset).abs();
@@ -285,7 +285,7 @@ fn ascii_animation() -> ProceduralAnimationWidget {
 
         // Even cycles (0, 2, 4...): transform original -> binary
         // Odd cycles (1, 3, 5...): transform binary -> original
-        let is_forward_pass = cycle % 2 == 0;
+        let is_forward_pass = cycle.is_multiple_of(2);
 
         // Check if the strip has passed this character yet
         let has_strip_passed = diag_pos < offset;

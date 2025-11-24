@@ -897,7 +897,8 @@ mod tests {
     static HS_LOCK: Mutex<()> = Mutex::new(());
 
     fn with_high_score_file<F: FnOnce()>(f: F) {
-        let _guard = HS_LOCK.lock().unwrap();
+        #[allow(clippy::expect_used)]
+        let _guard = HS_LOCK.lock().expect("Failed to lock high score mutex");
         let original = fs::read_to_string(HighScores::FILE).ok();
         f();
         // restore
