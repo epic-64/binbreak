@@ -1,4 +1,4 @@
-[![CI](https://github.com/epic-64/binbreak/workflows/CI/badge.svg)](https://github.com/epic-64/binbreak/actions)
+[![CI](https://github.com/epic-64/binbreak/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/epic-64/binbreak/actions)
 [![Built With Ratatui](https://ratatui.rs/built-with-ratatui/badge.svg)](https://ratatui.rs/)
 
 ![splash.gif](docs/splash.gif)
