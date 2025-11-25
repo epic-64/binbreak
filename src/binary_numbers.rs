@@ -1,3 +1,4 @@
+use crate::app::get_mode_color;
 use crate::keybinds;
 use crate::main_screen_widget::{MainScreenWidget, WidgetRef};
 use crate::utils::{When, center};
@@ -94,10 +95,11 @@ impl BinaryNumbersPuzzle {
                 Span::styled(format!("Hi-Score: {}  ", stats.prev_high_score), style)
             };
 
+            let mode_color = get_mode_color(&stats.bits);
             let line1 = Line::from(vec![
                 Span::styled(
                     format!("Mode: {}  ", stats.bits.label()),
-                    Style::default().fg(Color::Yellow),
+                    Style::default().fg(mode_color),
                 ),
                 high_label,
             ]);
@@ -694,13 +696,13 @@ impl Bits {
     }
     pub const fn label(&self) -> &'static str {
         match self {
-            Self::Four => "4 bits",
-            Self::FourShift4 => "4 bits*16",
-            Self::FourShift8 => "4 bits*256",
-            Self::FourShift12 => "4 bits*4096",
-            Self::Eight => "8 bits",
-            Self::Twelve => "12 bits",
-            Self::Sixteen => "16 bits",
+            Self::Four => "4 bit",
+            Self::FourShift4 => "4 bit*16",
+            Self::FourShift8 => "4 bit*256",
+            Self::FourShift12 => "4 bit*4096",
+            Self::Eight => "8 bit",
+            Self::Twelve => "12 bit",
+            Self::Sixteen => "16 bit",
         }
     }
 }
@@ -895,7 +897,8 @@ mod tests {
     static HS_LOCK: Mutex<()> = Mutex::new(());
 
     fn with_high_score_file<F: FnOnce()>(f: F) {
-        let _guard = HS_LOCK.lock().unwrap();
+        #[allow(clippy::expect_used)]
+        let _guard = HS_LOCK.lock().expect("Failed to lock high score mutex");
         let original = fs::read_to_string(HighScores::FILE).ok();
         f();
         // restore
