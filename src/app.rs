@@ -264,6 +264,7 @@ impl StartMenuState {
     fn with_selected(selected_index: usize) -> Self {
         let items = vec![
             ("easy       (4 bits)".to_string(), Bits::Four),
+            ("easy Two's complement (4 bits)".to_string(), Bits::FourTwosComplement),
             ("easy+16    (4 bits*16)".to_string(), Bits::FourShift4),
             ("easy+256   (4 bits*256)".to_string(), Bits::FourShift8),
             ("easy+4096  (4 bits*4096)".to_string(), Bits::FourShift12),

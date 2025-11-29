@@ -190,7 +190,13 @@ impl BinaryNumbersPuzzle {
 
             Block::bordered().border_type(border_type).fg(border_color).render(area, buf);
 
-            let suggestion_str = format!("{suggestion}");
+            let suggestion_str = if self.bits.is_twos_complement() {
+                // Convert raw bit pattern to signed value for display
+                let signed_val = self.bits.raw_to_signed(*suggestion);
+                format!("{signed_val}")
+            } else {
+                format!("{suggestion}")
+            };
 
             #[allow(clippy::cast_possible_truncation)]
             Paragraph::new(suggestion_str.to_string())
@@ -642,6 +648,7 @@ enum GuessResult {
 #[derive(Clone)]
 pub enum Bits {
     Four,
+    FourTwosComplement,
     FourShift4,
     FourShift8,
     FourShift12,
@@ -653,7 +660,7 @@ pub enum Bits {
 impl Bits {
     pub const fn to_int(&self) -> u32 {
         match self {
-            Self::Four | Self::FourShift4 | Self::FourShift8 | Self::FourShift12 => 4,
+            Self::Four | Self::FourShift4 | Self::FourShift8 | Self::FourShift12  | Self::FourTwosComplement=> 4,
             Self::Eight => 8,
             Self::Twelve => 12,
             Self::Sixteen => 16,
@@ -662,6 +669,7 @@ impl Bits {
     pub const fn scale_factor(&self) -> u32 {
         match self {
             Self::Four => 1,
+            Self::FourTwosComplement => 1,
             Self::FourShift4 => 16,
             Self::FourShift8 => 256,
             Self::FourShift12 => 4096,
@@ -673,6 +681,7 @@ impl Bits {
     pub const fn high_score_key(&self) -> u32 {
         match self {
             Self::Four => 4,
+            Self::FourTwosComplement => 42, // separate key for two's complement
             Self::FourShift4 => 44,
             Self::FourShift8 => 48,
             Self::FourShift12 => 412,
@@ -686,7 +695,7 @@ impl Bits {
     }
     pub const fn suggestion_count(&self) -> usize {
         match self {
-            Self::Four | Self::FourShift4 | Self::FourShift8 | Self::FourShift12 => 3,
+            Self::Four | Self::FourShift4 | Self::FourShift8 | Self::FourShift12 | Self::FourTwosComplement => 3,
             Self::Eight => 4,
             Self::Twelve => 5,
             Self::Sixteen => 6,
@@ -695,6 +704,7 @@ impl Bits {
     pub const fn label(&self) -> &'static str {
         match self {
             Self::Four => "4 bits",
+            Self::FourTwosComplement => "4 bits (Two's complement)",
             Self::FourShift4 => "4 bits*16",
             Self::FourShift8 => "4 bits*256",
             Self::FourShift12 => "4 bits*4096",
@@ -702,6 +712,25 @@ impl Bits {
             Self::Twelve => "12 bits",
             Self::Sixteen => "16 bits",
         }
+    }
+
+    /// Convert raw bit pattern to signed value for two's complement mode
+    pub const fn raw_to_signed(&self, raw: u32) -> i32 {
+        match self {
+            Self::FourTwosComplement => {
+                // 4-bit two's complement: range -8 to +7
+                if raw >= 8 {
+                    (raw as i32) - 16
+                } else {
+                    raw as i32
+                }
+            },
+            _ => raw as i32, // other modes use unsigned
+        }
+    }
+
+    pub const fn is_twos_complement(&self) -> bool {
+        matches!(self, Self::FourTwosComplement)
     }
 }
 
@@ -725,21 +754,40 @@ impl BinaryNumbersPuzzle {
 
         let mut suggestions = Vec::new();
         let scale = bits.scale_factor();
-        while suggestions.len() < bits.suggestion_count() {
-            let raw = rng.random_range(0..u32::pow(2, bits.to_int()));
-            let num = raw * scale;
-            if !suggestions.contains(&num) {
-                suggestions.push(num);
+        
+        if bits.is_twos_complement() {
+            // For two's complement, generate unique raw bit patterns (0-15)
+            let mut raw_values: Vec<u32> = Vec::new();
+            while raw_values.len() < bits.suggestion_count() {
+                let raw = rng.random_range(0..u32::pow(2, bits.to_int()));
+                if !raw_values.contains(&raw) {
+                    raw_values.push(raw);
+                }
+            }
+            // Store raw bit patterns directly
+            suggestions = raw_values;
+        } else {
+            // For unsigned modes
+            while suggestions.len() < bits.suggestion_count() {
+                let raw = rng.random_range(0..u32::pow(2, bits.to_int()));
+                let num = raw * scale;
+                if !suggestions.contains(&num) {
+                    suggestions.push(num);
+                }
             }
         }
 
-        let current_number = suggestions[0]; // scaled value
-        let raw_current_number = current_number / scale; // back-calculate raw bits
+        let current_number = suggestions[0]; // scaled value or raw for twos complement
+        let raw_current_number = if bits.is_twos_complement() {
+            current_number // for two's complement, it's already the raw bit pattern
+        } else {
+            current_number / scale // back-calculate raw bits
+        };
         suggestions.shuffle(&mut rng);
 
         // Base time by bits + difficulty scaling (shorter as streak increases)
         let base_time = match bits {
-            Bits::Four | Bits::FourShift4 | Bits::FourShift8 | Bits::FourShift12 => 8.0,
+            Bits::Four | Bits::FourShift4 | Bits::FourShift8 | Bits::FourShift12 | Bits::FourTwosComplement => 8.0,
             Bits::Eight => 12.0,
             Bits::Twelve => 16.0,
             Bits::Sixteen => 20.0,
@@ -868,7 +916,7 @@ impl HighScores {
 
     fn save(&self) -> std::io::Result<()> {
         let mut data = String::new();
-        for key in [4u32, 44u32, 48u32, 412u32, 8u32, 12u32, 16u32] {
+        for key in [4u32, 42u32, 44u32, 48u32, 412u32, 8u32, 12u32, 16u32] {
             let val = self.get(key);
             let _ = writeln!(data, "{key}={val}");
         }
