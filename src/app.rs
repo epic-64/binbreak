@@ -14,6 +14,21 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 use std::thread;
 use std::time::{Duration, Instant};
 
+#[derive(Copy, Clone, PartialEq, Debug)]
+pub enum NumberMode {
+    Unsigned,
+    Signed,
+}
+
+impl NumberMode {
+    pub const fn label(&self) -> &'static str {
+        match self {
+            Self::Unsigned => "UNSIGNED",
+            Self::Signed => "SIGNED",
+        }
+    }
+}
+
 static LAST_SELECTED_INDEX: AtomicUsize = AtomicUsize::new(4);
 
 fn get_last_selected_index() -> usize {
@@ -54,6 +69,7 @@ fn handle_start_input(state: &mut StartMenuState, key: KeyEvent) -> Option<AppSt
     match key {
         x if keybinds::is_up(x) => state.select_previous(),
         x if keybinds::is_down(x) => state.select_next(),
+        x if keybinds::is_left(x) | keybinds::is_right(x) => state.toggle_number_mode(),
         x if keybinds::is_select(x) => {
             let bits = state.selected_bits();
             // Store the current selection before entering the game
@@ -77,7 +93,10 @@ fn render_start_screen(state: &mut StartMenuState, area: Rect, buf: &mut Buffer)
     #[allow(clippy::cast_possible_truncation)]
     let max_len = upper_labels.iter().map(|s| s.len() as u16).max().unwrap_or(0);
 
-    let list_width = 2 + max_len; // marker + space + label
+    // Calculate width for both columns: marker + space + label + spacing + mode
+    let mode_label_width = 8; // "UNSIGNED" or "SIGNED  " (8 chars for alignment)
+    let column_spacing = 4; // spaces between difficulty and mode columns
+    let list_width = 2 + max_len + column_spacing + mode_label_width; // marker + space + label + spacing + mode
     #[allow(clippy::cast_possible_truncation)]
     let list_height = upper_labels.len() as u16;
 
@@ -117,8 +136,16 @@ fn render_start_screen(state: &mut StartMenuState, area: Rect, buf: &mut Buffer)
         .map(|(i, label)| {
             let is_selected = i == selected;
             let marker = if is_selected { '»' } else { ' ' };
-            let padded = format!("{:<width$}", label, width = max_len as usize);
-            let line = format!("{marker} {padded}");
+            let padded_label = format!("{:<width$}", label, width = max_len as usize);
+
+            // Add number mode for selected item
+            let mode_display = if is_selected {
+                format!("{:>width$}", state.number_mode.label(), width = mode_label_width as usize)
+            } else {
+                " ".repeat(mode_label_width as usize)
+            };
+
+            let line = format!("{marker} {padded_label}    {mode_display}");
 
             let item_color = get_mode_color(&state.items[i].1);
             let mut style = Style::default().fg(item_color).add_modifier(Modifier::BOLD);
@@ -316,6 +343,7 @@ struct StartMenuState {
     items: Vec<(String, Bits)>,
     list_state: ListState,
     animation: ProceduralAnimationWidget,
+    number_mode: NumberMode,
 }
 
 impl StartMenuState {
@@ -338,6 +366,7 @@ impl StartMenuState {
             items,
             list_state: ListState::default().with_selected(Some(selected_index)),
             animation: ascii_animation(),
+            number_mode: NumberMode::Unsigned,
         }
     }
 
@@ -367,5 +396,11 @@ impl StartMenuState {
     }
     fn toggle_animation(&mut self) {
         self.animation.toggle_pause();
+    }
+    fn toggle_number_mode(&mut self) {
+        self.number_mode = match self.number_mode {
+            NumberMode::Unsigned => NumberMode::Signed,
+            NumberMode::Signed => NumberMode::Unsigned,
+        };
     }
 }
