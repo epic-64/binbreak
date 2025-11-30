@@ -1,8 +1,6 @@
 [![CI](https://github.com/epic-64/binbreak/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/epic-64/binbreak/actions)
 [![Built With Ratatui](https://ratatui.rs/built-with-ratatui/badge.svg)](https://ratatui.rs/)
 
-![splash.gif](docs/splash.gif)
-
 https://github.com/user-attachments/assets/4413fe8d-9a3f-4c00-9c1a-b9ca01a946fc
 
 Guess the correct number (from binary to decimal) before time runs out!
