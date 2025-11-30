@@ -723,7 +723,9 @@ impl Bits {
 
 pub struct BinaryNumbersPuzzle {
     bits: Bits,
+    #[allow(dead_code)]
     number_mode: NumberMode,
+    #[allow(dead_code)]
     current_number: u32, // scaled value used for suggestions matching
     raw_current_number: u32, // raw bit value (unscaled) for display
     suggestions: Vec<i32>,   // Changed to i32 to support signed values
