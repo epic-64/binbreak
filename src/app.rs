@@ -52,7 +52,7 @@ pub fn get_mode_color(bits: &Bits) -> Color {
         Bits::FourShift4 => Color::Rgb(100, 255, 180),  // cyan
         Bits::FourShift8 => Color::Rgb(100, 220, 255),  // light blue
         Bits::FourShift12 => Color::Rgb(100, 180, 255), // blue
-        Bits::Eight => Color::Rgb(125, 120, 255),       // royal blue
+        Bits::Eight => Color::Rgb(150, 120, 255),       // royal blue
         Bits::Twelve => Color::Rgb(200, 100, 255),      // purple
         Bits::Sixteen => Color::Rgb(255, 80, 150),      // pink
     }
