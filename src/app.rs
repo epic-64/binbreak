@@ -10,7 +10,6 @@ use ratatui::layout::Rect;
 use ratatui::prelude::{Color, Modifier, Span, Style};
 use ratatui::widgets::{List, ListItem, ListState};
 use std::cmp;
-use std::sync::atomic::{AtomicUsize, Ordering};
 use std::thread;
 use std::time::{Duration, Instant};
 
@@ -29,14 +28,20 @@ impl NumberMode {
     }
 }
 
-static LAST_SELECTED_INDEX: AtomicUsize = AtomicUsize::new(4);
-
-fn get_last_selected_index() -> usize {
-    LAST_SELECTED_INDEX.load(Ordering::Relaxed)
+/// Persistent application preferences that survive across menu/game transitions
+#[derive(Copy, Clone, Debug)]
+struct AppPreferences {
+    last_selected_index: usize,
+    last_number_mode: NumberMode,
 }
 
-fn set_last_selected_index(index: usize) {
-    LAST_SELECTED_INDEX.store(index, Ordering::Relaxed)
+impl Default for AppPreferences {
+    fn default() -> Self {
+        Self {
+            last_selected_index: 4, // Default to "byte 8 bit"
+            last_number_mode: NumberMode::Unsigned,
+        }
+    }
 }
 
 /// Get the color associated with a specific difficulty level / game mode
@@ -60,23 +65,26 @@ enum FpsMode {
 }
 
 enum AppState {
-    Start(StartMenuState),
-    Playing(BinaryNumbersGame),
+    Start(StartMenuState, AppPreferences),
+    Playing(BinaryNumbersGame, AppPreferences),
     Exit,
 }
 
-fn handle_start_input(state: &mut StartMenuState, key: KeyEvent) -> Option<AppState> {
+fn handle_start_input(state: &mut StartMenuState, key: KeyEvent, prefs: AppPreferences) -> Option<(AppState, AppPreferences)> {
     match key {
         x if keybinds::is_up(x) => state.select_previous(),
         x if keybinds::is_down(x) => state.select_next(),
         x if keybinds::is_left(x) | keybinds::is_right(x) => state.toggle_number_mode(),
         x if keybinds::is_select(x) => {
             let bits = state.selected_bits();
-            // Store the current selection before entering the game
-            set_last_selected_index(state.selected_index());
-            return Some(AppState::Playing(BinaryNumbersGame::new(bits)));
+            // Update preferences with current selection
+            let updated_prefs = AppPreferences {
+                last_selected_index: state.selected_index(),
+                last_number_mode: state.number_mode,
+            };
+            return Some((AppState::Playing(BinaryNumbersGame::new(bits), updated_prefs), updated_prefs));
         },
-        x if keybinds::is_exit(x) => return Some(AppState::Exit),
+        x if keybinds::is_exit(x) => return Some((AppState::Exit, prefs)),
         KeyEvent { code: KeyCode::Char('a' | 'A'), .. } => state.toggle_animation(),
         _ => {},
     }
@@ -176,12 +184,16 @@ fn handle_crossterm_events(app_state: &mut AppState) -> color_eyre::Result<()> {
             // state-specific input handling
             _ => {
                 *app_state = match std::mem::replace(app_state, AppState::Exit) {
-                    AppState::Start(mut menu) => {
-                        handle_start_input(&mut menu, key).unwrap_or(AppState::Start(menu))
+                    AppState::Start(mut menu, prefs) => {
+                        if let Some((new_state, _)) = handle_start_input(&mut menu, key, prefs) {
+                            new_state
+                        } else {
+                            AppState::Start(menu, prefs)
+                        }
                     },
-                    AppState::Playing(mut game) => {
+                    AppState::Playing(mut game, prefs) => {
                         game.handle_input(key);
-                        AppState::Playing(game)
+                        AppState::Playing(game, prefs)
                     },
                     AppState::Exit => AppState::Exit,
                 }
@@ -201,7 +213,8 @@ fn get_fps_mode(game: &BinaryNumbersGame) -> FpsMode {
 }
 
 pub fn run_app(terminal: &mut ratatui::DefaultTerminal) -> color_eyre::Result<()> {
-    let mut app_state = AppState::Start(StartMenuState::new());
+    let prefs = AppPreferences::default();
+    let mut app_state = AppState::Start(StartMenuState::new(prefs), prefs);
     let mut last_frame_time = Instant::now();
     let target_frame_duration = std::time::Duration::from_millis(33); // ~30 FPS
 
@@ -211,22 +224,22 @@ pub fn run_app(terminal: &mut ratatui::DefaultTerminal) -> color_eyre::Result<()
         last_frame_time = now;
 
         // Advance game BEFORE drawing so stats are updated
-        if let AppState::Playing(game) = &mut app_state {
+        if let AppState::Playing(game, prefs) = &mut app_state {
             game.run(dt.as_secs_f64());
             if game.is_exit_intended() {
-                app_state = AppState::Start(StartMenuState::new());
+                app_state = AppState::Start(StartMenuState::new(*prefs), *prefs);
                 continue;
             }
         }
 
         terminal.draw(|f| match &mut app_state {
-            AppState::Start(menu) => render_start_screen(menu, f.area(), f.buffer_mut()),
-            AppState::Playing(game) => f.render_widget(&mut *game, f.area()),
+            AppState::Start(menu, _) => render_start_screen(menu, f.area(), f.buffer_mut()),
+            AppState::Playing(game, _) => f.render_widget(&mut *game, f.area()),
             AppState::Exit => {},
         })?;
 
         // handle input
-        if let AppState::Playing(game) = &app_state {
+        if let AppState::Playing(game, _) = &app_state {
             if get_fps_mode(game) == FpsMode::RealTime {
                 let poll_timeout = cmp::min(dt, target_frame_duration);
                 if event::poll(poll_timeout)? {
@@ -236,7 +249,7 @@ pub fn run_app(terminal: &mut ratatui::DefaultTerminal) -> color_eyre::Result<()
                 // performance mode: block thread until an input event occurs
                 handle_crossterm_events(&mut app_state)?;
             }
-        } else if let AppState::Start(menu) = &app_state {
+        } else if let AppState::Start(menu, _) = &app_state {
             // For start menu, use real-time mode only if animation is running
             if !menu.animation.is_paused() {
                 let poll_timeout = cmp::min(dt, target_frame_duration);
@@ -347,11 +360,11 @@ struct StartMenuState {
 }
 
 impl StartMenuState {
-    fn new() -> Self {
-        Self::with_selected(get_last_selected_index())
+    fn new(prefs: AppPreferences) -> Self {
+        Self::with_preferences(prefs)
     }
 
-    fn with_selected(selected_index: usize) -> Self {
+    fn with_preferences(prefs: AppPreferences) -> Self {
         let items = vec![
             ("nibble_0    4 bit".to_string(), Bits::Four),
             ("nibble_1    4 bit*16".to_string(), Bits::FourShift4),
@@ -364,9 +377,9 @@ impl StartMenuState {
 
         Self {
             items,
-            list_state: ListState::default().with_selected(Some(selected_index)),
+            list_state: ListState::default().with_selected(Some(prefs.last_selected_index)),
             animation: ascii_animation(),
-            number_mode: NumberMode::Unsigned,
+            number_mode: prefs.last_number_mode,
         }
     }
 
