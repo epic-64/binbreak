@@ -37,6 +37,7 @@ There is one file for linux and one for windows (.exe).
 
 ## Controls
 - use the arrow or vim keys for navigation
+- use left/right to toggle signed/unsigned mode
 - press Enter to confirm choices
 - press Esc or Q to exit a game mode or the game. CTRL+C also works to exit the game.
 
