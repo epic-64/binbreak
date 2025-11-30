@@ -192,7 +192,13 @@ impl BinaryNumbersPuzzle {
 
             Block::bordered().border_type(border_type).fg(border_color).render(area, buf);
 
-            let suggestion_str = format!("{suggestion}");
+            let suggestion_str = if self.bits.is_twos_complement() {
+                // Convert raw bit pattern to signed value for display
+                let signed_val = self.bits.raw_to_signed(*suggestion);
+                format!("{signed_val}")
+            } else {
+                format!("{suggestion}")
+            };
 
             #[allow(clippy::cast_possible_truncation)]
             Paragraph::new(suggestion_str.to_string())
