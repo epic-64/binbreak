@@ -1,4 +1,4 @@
-use crate::app::{get_mode_color, NumberMode};
+use crate::app::{NumberMode, get_mode_color};
 use crate::keybinds;
 use crate::main_screen_widget::{MainScreenWidget, WidgetRef};
 use crate::utils::{When, center};
@@ -99,10 +99,7 @@ impl BinaryNumbersPuzzle {
             let mode_color = get_mode_color(&stats.bits);
             let mode_label = format!("{} {}", stats.bits.label(), stats.number_mode.label());
             let line1 = Line::from(vec![
-                Span::styled(
-                    format!("Mode: {}  ", mode_label),
-                    Style::default().fg(mode_color),
-                ),
+                Span::styled(format!("Mode: {}  ", mode_label), Style::default().fg(mode_color)),
                 high_label,
             ]);
 
@@ -620,7 +617,8 @@ impl BinaryNumbersGame {
                     },
                     GameState::Result => {
                         // start next puzzle
-                        self.puzzle = Self::init_puzzle(self.bits.clone(), self.number_mode, self.streak);
+                        self.puzzle =
+                            Self::init_puzzle(self.bits.clone(), self.number_mode, self.streak);
                         self.puzzle_resolved = false;
                         self.game_state = GameState::Active;
                     },
@@ -725,10 +723,8 @@ impl Bits {
 
 pub struct BinaryNumbersPuzzle {
     bits: Bits,
-    #[allow(dead_code)]
     number_mode: NumberMode,
-    #[allow(dead_code)]
-    current_number: u32,     // scaled value used for suggestions matching
+    current_number: u32, // scaled value used for suggestions matching
     raw_current_number: u32, // raw bit value (unscaled) for display
     suggestions: Vec<i32>,   // Changed to i32 to support signed values
     selected_suggestion: Option<i32>,
@@ -757,7 +753,7 @@ impl BinaryNumbersPuzzle {
                         suggestions.push(num);
                     }
                 }
-            }
+            },
             NumberMode::Signed => {
                 // For signed mode, use two's complement representation
                 // Range is from -(2^(n-1)) to 2^(n-1)-1
@@ -776,7 +772,7 @@ impl BinaryNumbersPuzzle {
                         suggestions.push(num);
                     }
                 }
-            }
+            },
         }
 
         // Shuffle suggestions
@@ -790,7 +786,7 @@ impl BinaryNumbersPuzzle {
             NumberMode::Unsigned => {
                 let current_number = current_number_signed.unsigned_abs();
                 current_number / scale
-            }
+            },
             NumberMode::Signed => {
                 // For signed mode, we need to preserve the two's complement representation
                 // First, get the unscaled signed value
@@ -800,7 +796,7 @@ impl BinaryNumbersPuzzle {
                 // For n-bit number, mask is (2^n - 1)
                 let mask = (1u32 << num_bits) - 1;
                 (unscaled_signed as u32) & mask
-            }
+            },
         };
 
         let current_number = current_number_signed.unsigned_abs();
@@ -926,7 +922,10 @@ impl HighScores {
 
     fn save(&self) -> std::io::Result<()> {
         let mut data = String::new();
-        for key in ["4u", "4s", "44u", "44s", "48u", "48s", "412u", "412s", "8u", "8s", "12u", "12s", "16u", "16s"] {
+        for key in [
+            "4u", "4s", "44u", "44s", "48u", "48s", "412u", "412s", "8u", "8s", "12u", "12s",
+            "16u", "16s",
+        ] {
             let val = self.get(key);
             let _ = writeln!(data, "{key}={val}");
         }

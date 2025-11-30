@@ -70,7 +70,11 @@ enum AppState {
     Exit,
 }
 
-fn handle_start_input(state: &mut StartMenuState, key: KeyEvent, prefs: AppPreferences) -> Option<(AppState, AppPreferences)> {
+fn handle_start_input(
+    state: &mut StartMenuState,
+    key: KeyEvent,
+    prefs: AppPreferences,
+) -> Option<(AppState, AppPreferences)> {
     match key {
         x if keybinds::is_up(x) => state.select_previous(),
         x if keybinds::is_down(x) => state.select_next(),
@@ -83,7 +87,10 @@ fn handle_start_input(state: &mut StartMenuState, key: KeyEvent, prefs: AppPrefe
                 last_selected_index: state.selected_index(),
                 last_number_mode: state.number_mode,
             };
-            return Some((AppState::Playing(BinaryNumbersGame::new(bits, number_mode), updated_prefs), updated_prefs));
+            return Some((
+                AppState::Playing(BinaryNumbersGame::new(bits, number_mode), updated_prefs),
+                updated_prefs,
+            ));
         },
         x if keybinds::is_exit(x) => return Some((AppState::Exit, prefs)),
         KeyEvent { code: KeyCode::Char('a' | 'A'), .. } => state.toggle_animation(),
