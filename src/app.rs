@@ -77,12 +77,13 @@ fn handle_start_input(state: &mut StartMenuState, key: KeyEvent, prefs: AppPrefe
         x if keybinds::is_left(x) | keybinds::is_right(x) => state.toggle_number_mode(),
         x if keybinds::is_select(x) => {
             let bits = state.selected_bits();
+            let number_mode = state.number_mode;
             // Update preferences with current selection
             let updated_prefs = AppPreferences {
                 last_selected_index: state.selected_index(),
                 last_number_mode: state.number_mode,
             };
-            return Some((AppState::Playing(BinaryNumbersGame::new(bits), updated_prefs), updated_prefs));
+            return Some((AppState::Playing(BinaryNumbersGame::new(bits, number_mode), updated_prefs), updated_prefs));
         },
         x if keybinds::is_exit(x) => return Some((AppState::Exit, prefs)),
         KeyEvent { code: KeyCode::Char('a' | 'A'), .. } => state.toggle_animation(),
