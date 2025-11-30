@@ -784,8 +784,26 @@ impl BinaryNumbersPuzzle {
 
         // Pick first suggestion as the current number
         let current_number_signed = suggestions[0];
+
+        // Calculate raw_current_number based on mode
+        let raw_current_number = match number_mode {
+            NumberMode::Unsigned => {
+                let current_number = current_number_signed.unsigned_abs();
+                current_number / scale
+            }
+            NumberMode::Signed => {
+                // For signed mode, we need to preserve the two's complement representation
+                // First, get the unscaled signed value
+                let unscaled_signed = current_number_signed / (scale as i32);
+
+                // Convert to unsigned bits using two's complement masking
+                // For n-bit number, mask is (2^n - 1)
+                let mask = (1u32 << num_bits) - 1;
+                (unscaled_signed as u32) & mask
+            }
+        };
+
         let current_number = current_number_signed.unsigned_abs();
-        let raw_current_number = current_number / scale;
 
         // Calculate time based on difficulty
         let time_total = 10.0 - (streak.min(8) as f64 * 0.5);
@@ -995,6 +1013,61 @@ mod tests {
         let mut p4 = BinaryNumbersPuzzle::new(Bits::Four, NumberMode::Unsigned, 0);
         p4.raw_current_number = 0b0101;
         assert_eq!(p4.current_to_binary_string(), "0101");
+    }
+
+    #[test]
+    fn signed_mode_negative_numbers_show_sign_bit() {
+        // Test 4-bit signed mode with a negative number
+        let mut p = BinaryNumbersPuzzle::new(Bits::Four, NumberMode::Signed, 0);
+        // In 4-bit two's complement, -8 is represented as 1000
+        p.raw_current_number = 0b1000; // -8 in 4-bit two's complement
+        assert_eq!(p.current_to_binary_string(), "1000", "4-bit: -8 should be 1000");
+
+        // In 4-bit two's complement, -1 is represented as 1111
+        p.raw_current_number = 0b1111; // -1 in 4-bit two's complement
+        assert_eq!(p.current_to_binary_string(), "1111", "4-bit: -1 should be 1111");
+
+        // Test 8-bit signed mode with a negative number
+        let mut p8 = BinaryNumbersPuzzle::new(Bits::Eight, NumberMode::Signed, 0);
+        // In 8-bit two's complement, -128 is represented as 10000000
+        p8.raw_current_number = 0b10000000; // -128 in 8-bit two's complement
+        assert_eq!(p8.current_to_binary_string(), "1000 0000", "8-bit: -128 should be 1000 0000");
+
+        // In 8-bit two's complement, -1 is represented as 11111111
+        p8.raw_current_number = 0b11111111; // -1 in 8-bit two's complement
+        assert_eq!(p8.current_to_binary_string(), "1111 1111", "8-bit: -1 should be 1111 1111");
+    }
+
+    #[test]
+    fn signed_mode_puzzle_generates_correct_raw_bits_for_negative() {
+        // Generate many puzzles and check that when we have a negative number,
+        // the raw_current_number has the sign bit set correctly
+        for _ in 0..20 {
+            let p = BinaryNumbersPuzzle::new(Bits::Four, NumberMode::Signed, 0);
+            let current_signed = p.suggestions[0];
+
+            if current_signed < 0 {
+                // For negative numbers in 4-bit two's complement, the MSB (bit 3) should be 1
+                // which means raw_current_number should be >= 8 (0b1000)
+                assert!(
+                    p.raw_current_number >= 8,
+                    "Negative number {} should have raw bits >= 8 (sign bit set), but got {}. Binary: {}",
+                    current_signed,
+                    p.raw_current_number,
+                    p.current_to_binary_string()
+                );
+            } else {
+                // For positive numbers (including 0), MSB should be 0
+                // which means raw_current_number should be < 8
+                assert!(
+                    p.raw_current_number < 8,
+                    "Positive number {} should have raw bits < 8 (sign bit clear), but got {}. Binary: {}",
+                    current_signed,
+                    p.raw_current_number,
+                    p.current_to_binary_string()
+                );
+            }
+        }
     }
 
     #[test]
