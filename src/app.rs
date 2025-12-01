@@ -1,28 +1,61 @@
 use crate::binary_numbers::{BinaryNumbersGame, Bits};
 use crate::keybinds;
 use crate::main_screen_widget::MainScreenWidget;
-use crate::utils::{AsciiArtWidget, AsciiCells};
+use crate::utils::ProceduralAnimationWidget;
 use crossterm::event;
 use crossterm::event::{Event, KeyCode, KeyEvent, KeyEventKind, KeyModifiers};
 use indoc::indoc;
 use ratatui::buffer::Buffer;
 use ratatui::layout::Rect;
-use ratatui::prelude::{Color, Modifier, Span, Style, Widget};
+use ratatui::prelude::{Color, Modifier, Span, Style};
 use ratatui::widgets::{List, ListItem, ListState};
 use std::cmp;
-use std::collections::HashMap;
-use std::sync::atomic::{AtomicUsize, Ordering};
 use std::thread;
-use std::time::Instant;
+use std::time::{Duration, Instant};
 
-static LAST_SELECTED_INDEX: AtomicUsize = AtomicUsize::new(4);
-
-fn get_last_selected_index() -> usize {
-    LAST_SELECTED_INDEX.load(Ordering::Relaxed)
+#[derive(Copy, Clone, PartialEq, Debug)]
+pub enum NumberMode {
+    Unsigned,
+    Signed,
 }
 
-fn set_last_selected_index(index: usize) {
-    LAST_SELECTED_INDEX.store(index, Ordering::Relaxed);
+impl NumberMode {
+    pub const fn label(&self) -> &'static str {
+        match self {
+            Self::Unsigned => "UNSIGNED",
+            Self::Signed => "SIGNED",
+        }
+    }
+}
+
+/// Persistent application preferences that survive across menu/game transitions
+#[derive(Copy, Clone, Debug)]
+struct AppPreferences {
+    last_selected_index: usize,
+    last_number_mode: NumberMode,
+}
+
+impl Default for AppPreferences {
+    fn default() -> Self {
+        Self {
+            last_selected_index: 4, // Default to "byte 8 bit"
+            last_number_mode: NumberMode::Unsigned,
+        }
+    }
+}
+
+/// Get the color associated with a specific difficulty level / game mode
+pub fn get_mode_color(bits: &Bits) -> Color {
+    // Color scheme: progression from easy (green/cyan) to hard (yellow/red)
+    match bits {
+        Bits::Four => Color::Rgb(100, 255, 100),        // green
+        Bits::FourShift4 => Color::Rgb(100, 255, 180),  // cyan
+        Bits::FourShift8 => Color::Rgb(100, 220, 255),  // light blue
+        Bits::FourShift12 => Color::Rgb(100, 180, 255), // blue
+        Bits::Eight => Color::Rgb(125, 120, 255),       // royal blue
+        Bits::Twelve => Color::Rgb(200, 100, 255),      // purple
+        Bits::Sixteen => Color::Rgb(255, 80, 150),      // pink
+    }
 }
 
 #[derive(Copy, Clone, PartialEq, Debug)]
@@ -32,40 +65,54 @@ enum FpsMode {
 }
 
 enum AppState {
-    Start(StartMenuState),
-    Playing(BinaryNumbersGame),
+    Start(StartMenuState, AppPreferences),
+    Playing(BinaryNumbersGame, AppPreferences),
     Exit,
 }
 
-fn handle_start_input(state: &mut StartMenuState, key: KeyEvent) -> Option<AppState> {
+fn handle_start_input(
+    state: &mut StartMenuState,
+    key: KeyEvent,
+    prefs: AppPreferences,
+) -> Option<(AppState, AppPreferences)> {
     match key {
         x if keybinds::is_up(x) => state.select_previous(),
         x if keybinds::is_down(x) => state.select_next(),
+        x if keybinds::is_left(x) | keybinds::is_right(x) => state.toggle_number_mode(),
         x if keybinds::is_select(x) => {
             let bits = state.selected_bits();
-            // Store the current selection before entering the game
-            set_last_selected_index(state.selected_index());
-            return Some(AppState::Playing(BinaryNumbersGame::new(bits)));
+            let number_mode = state.number_mode;
+            // Update preferences with current selection
+            let updated_prefs = AppPreferences {
+                last_selected_index: state.selected_index(),
+                last_number_mode: state.number_mode,
+            };
+            return Some((
+                AppState::Playing(BinaryNumbersGame::new(bits, number_mode), updated_prefs),
+                updated_prefs,
+            ));
         },
-        x if keybinds::is_exit(x) => return Some(AppState::Exit),
+        x if keybinds::is_exit(x) => return Some((AppState::Exit, prefs)),
+        KeyEvent { code: KeyCode::Char('a' | 'A'), .. } => state.toggle_animation(),
         _ => {},
     }
     None
 }
 
 fn render_start_screen(state: &mut StartMenuState, area: Rect, buf: &mut Buffer) {
-    // Build ASCII art to obtain real dimensions
-    let cells = ascii_art_cells();
-    let ascii_width = cells.get_width();
-    let ascii_height = cells.get_height();
-    let ascii_widget = AsciiArtWidget::new(cells);
+    // Get animation dimensions
+    let ascii_width = state.animation.get_width();
+    let ascii_height = state.animation.get_height();
 
     let selected = state.selected_index();
     let upper_labels: Vec<String> = state.items.iter().map(|(l, _)| l.to_uppercase()).collect();
     #[allow(clippy::cast_possible_truncation)]
     let max_len = upper_labels.iter().map(|s| s.len() as u16).max().unwrap_or(0);
 
-    let list_width = 2 + max_len; // marker + space + label
+    // Calculate width for both columns: marker + space + label + spacing + mode
+    let mode_label_width = 8; // "UNSIGNED" or "SIGNED  " (8 chars for alignment)
+    let column_spacing = 4; // spaces between difficulty and mode columns
+    let list_width = 2 + max_len + column_spacing + mode_label_width; // marker + space + label + spacing + mode
     #[allow(clippy::cast_possible_truncation)]
     let list_height = upper_labels.len() as u16;
 
@@ -90,28 +137,40 @@ fn render_start_screen(state: &mut StartMenuState, area: Rect, buf: &mut Buffer)
         list_height.min(area.height.saturating_sub(list_y - area.y)),
     );
 
-    // Render ASCII art
-    ascii_widget.render(ascii_area, buf);
+    // Get color for the selected menu item
+    let selected_color = get_mode_color(&state.items[selected].1);
 
-    // Palette for menu flair
-    let palette = [
-        Color::LightGreen,
-        Color::LightCyan,
-        Color::LightBlue,
-        Color::LightMagenta,
-        Color::LightYellow,
-        Color::LightRed,
-    ];
+    // Update animation color to match selected menu item
+    state.animation.set_highlight_color(selected_color);
+
+    // Render ASCII animation (handles paused state internally)
+    state.animation.render_to_buffer(ascii_area, buf);
 
     let items: Vec<ListItem> = upper_labels
         .into_iter()
         .enumerate()
         .map(|(i, label)| {
-            let marker = if i == selected { '»' } else { ' ' };
-            let padded = format!("{:<width$}", label, width = max_len as usize);
-            let line = format!("{marker} {padded}");
-            let style =
-                Style::default().fg(palette[i % palette.len()]).add_modifier(Modifier::BOLD);
+            let is_selected = i == selected;
+            let marker = if is_selected { '»' } else { ' ' };
+            let padded_label = format!("{:<width$}", label, width = max_len as usize);
+
+            // Add number mode for selected item
+            let mode_display = if is_selected {
+                format!("{:>width$}", state.number_mode.label(), width = mode_label_width as usize)
+            } else {
+                " ".repeat(mode_label_width as usize)
+            };
+
+            let line = format!("{marker} {padded_label}    {mode_display}");
+
+            let item_color = get_mode_color(&state.items[i].1);
+            let mut style = Style::default().fg(item_color).add_modifier(Modifier::BOLD);
+
+            // Make selected item extra prominent with background highlight
+            if is_selected {
+                style = style.bg(Color::Rgb(40, 40, 40));
+            }
+
             ListItem::new(Span::styled(line, style))
         })
         .collect();
@@ -133,12 +192,16 @@ fn handle_crossterm_events(app_state: &mut AppState) -> color_eyre::Result<()> {
             // state-specific input handling
             _ => {
                 *app_state = match std::mem::replace(app_state, AppState::Exit) {
-                    AppState::Start(mut menu) => {
-                        handle_start_input(&mut menu, key).unwrap_or(AppState::Start(menu))
+                    AppState::Start(mut menu, prefs) => {
+                        if let Some((new_state, _)) = handle_start_input(&mut menu, key, prefs) {
+                            new_state
+                        } else {
+                            AppState::Start(menu, prefs)
+                        }
                     },
-                    AppState::Playing(mut game) => {
+                    AppState::Playing(mut game, prefs) => {
                         game.handle_input(key);
-                        AppState::Playing(game)
+                        AppState::Playing(game, prefs)
                     },
                     AppState::Exit => AppState::Exit,
                 }
@@ -158,7 +221,8 @@ fn get_fps_mode(game: &BinaryNumbersGame) -> FpsMode {
 }
 
 pub fn run_app(terminal: &mut ratatui::DefaultTerminal) -> color_eyre::Result<()> {
-    let mut app_state = AppState::Start(StartMenuState::new());
+    let prefs = AppPreferences::default();
+    let mut app_state = AppState::Start(StartMenuState::new(prefs), prefs);
     let mut last_frame_time = Instant::now();
     let target_frame_duration = std::time::Duration::from_millis(33); // ~30 FPS
 
@@ -168,22 +232,22 @@ pub fn run_app(terminal: &mut ratatui::DefaultTerminal) -> color_eyre::Result<()
         last_frame_time = now;
 
         // Advance game BEFORE drawing so stats are updated
-        if let AppState::Playing(game) = &mut app_state {
+        if let AppState::Playing(game, prefs) = &mut app_state {
             game.run(dt.as_secs_f64());
             if game.is_exit_intended() {
-                app_state = AppState::Start(StartMenuState::new());
+                app_state = AppState::Start(StartMenuState::new(*prefs), *prefs);
                 continue;
             }
         }
 
         terminal.draw(|f| match &mut app_state {
-            AppState::Start(menu) => render_start_screen(menu, f.area(), f.buffer_mut()),
-            AppState::Playing(game) => f.render_widget(&mut *game, f.area()),
+            AppState::Start(menu, _) => render_start_screen(menu, f.area(), f.buffer_mut()),
+            AppState::Playing(game, _) => f.render_widget(&mut *game, f.area()),
             AppState::Exit => {},
         })?;
 
         // handle input
-        if let AppState::Playing(game) = &app_state {
+        if let AppState::Playing(game, _) = &app_state {
             if get_fps_mode(game) == FpsMode::RealTime {
                 let poll_timeout = cmp::min(dt, target_frame_duration);
                 if event::poll(poll_timeout)? {
@@ -193,10 +257,17 @@ pub fn run_app(terminal: &mut ratatui::DefaultTerminal) -> color_eyre::Result<()
                 // performance mode: block thread until an input event occurs
                 handle_crossterm_events(&mut app_state)?;
             }
-        } else {
-            // For non-playing states (e.g., start menu), use performance mode
-            // to block until input and minimize CPU usage
-            handle_crossterm_events(&mut app_state)?;
+        } else if let AppState::Start(menu, _) = &app_state {
+            // For start menu, use real-time mode only if animation is running
+            if !menu.animation.is_paused() {
+                let poll_timeout = cmp::min(dt, target_frame_duration);
+                if event::poll(poll_timeout)? {
+                    handle_crossterm_events(&mut app_state)?;
+                }
+            } else {
+                // Animation paused, use performance mode to save CPU
+                handle_crossterm_events(&mut app_state)?;
+            }
         }
 
         // cap frame rate
@@ -208,72 +279,116 @@ pub fn run_app(terminal: &mut ratatui::DefaultTerminal) -> color_eyre::Result<()
     Ok(())
 }
 
-fn ascii_art_cells() -> AsciiCells {
+fn ascii_animation() -> ProceduralAnimationWidget {
     let art = indoc! {r#"
          ,,        ,,              ,,
-        *MM        db             *MM                                `7MM
+        *MM        db             *MM      [a: toggle animation]     `7MM
          MM                        MM                                  MM
          MM,dMMb.`7MM  `7MMpMMMb.  MM,dMMb.`7Mb,od8 .gP"Ya   ,6"Yb.    MM  ,MP'
          MM    `Mb MM    MM    MM  MM    `Mb MM' "',M'   Yb 8)   MM    MM ;Y
          MM     M8 MM    MM    MM  MM     M8 MM    8M""""""  ,pm9MM    MM;Mm
          MM.   ,M9 MM    MM    MM  MM.   ,M9 MM    YM.    , 8M   MM    MM `Mb.
          P^YbmdP'.JMML..JMML  JMML.P^YbmdP'.JMML.   `Mbmmd' `Moo9^Yo..JMML. YA.
-    "#};
+    "#}
+    .to_string();
 
-    let colors = indoc! {r#"
-         ,,        ,,              ,,
-        *MM        db             *MM                                `7MM
-         MM                        MM                                  MM
-         MM,dMMb.`7MM  `7MMpMMMb.  MM,dMMb.`7Mb,od8 .gP"Ya   ,6"Yb.    MM  ,MP'
-         MM    `Mb MM    MM    MM  MM    `Mb MM' "',M'   Yb 8)   MM    MM ;Y
-         MM     M8 MM    MM    MM  MM     M8 MM    8M""""""  ,pm9MM    MM;Mm
-         MM.   ,M9 MM    MM    MM  MM.   ,M9 MM    YM.    , 8M   MM    MM `Mb.
-         P^YbmdP'.JMML..JMML  JMML.P^YbmdP'.JMML.   `Mbmmd' `Moo9^Yo..JMML. YA.
-    "#};
+    // Get dimensions for calculations
+    let art_lines: Vec<&str> = art.lines().collect();
+    let height = art_lines.len();
+    let width = art_lines.iter().map(|line| line.len()).max().unwrap_or(0);
 
-    let color_map = HashMap::from([
-        ('M', Color::White),
-        ('b', Color::LightYellow),
-        ('d', Color::LightCyan),
-        ('Y', Color::LightGreen),
-        ('8', Color::LightMagenta),
-        ('*', Color::Magenta),
-        ('`', Color::Cyan),
-        ('6', Color::Green),
-        ('9', Color::Red),
-        ('(', Color::Blue),
-        (')', Color::Blue),
-        (' ', Color::Black),
-    ]);
+    let strip_width = 8.0;
+    let start_offset = -strip_width;
+    let end_offset = (width + height) as f32 + strip_width;
+    let total_range = end_offset - start_offset;
 
-    let default_color = Color::LightBlue;
-    AsciiCells::from(art, colors, &color_map, default_color)
+    // Color function that calculates colors on-the-fly based on animation progress
+    let color_fn =
+        move |x: usize, y: usize, progress: f32, _cycle: usize, highlight_color: Color| -> Color {
+            let offset = start_offset + progress * total_range;
+            let diag_pos = (x + y) as f32;
+            let dist_from_strip = (diag_pos - offset).abs();
+
+            if dist_from_strip < strip_width {
+                highlight_color
+            } else {
+                Color::DarkGray
+            }
+        };
+
+    // Character function that permanently replaces characters with '0' or '1' on first pass,
+    // then reverses them back to original on second pass, creating an infinite loop
+    let char_fn =
+        move |x: usize, y: usize, progress: f32, cycle: usize, original_char: char| -> char {
+            let offset = start_offset + progress * total_range;
+            let diag_pos = (x + y) as f32;
+
+            // Hash function to determine if character is '0' or '1'
+            let mut position_hash = x.wrapping_mul(2654435761);
+            position_hash ^= y.wrapping_mul(2246822519);
+            position_hash = position_hash.wrapping_mul(668265263);
+            position_hash ^= position_hash >> 15;
+
+            let mut binary_hash = position_hash.wrapping_mul(1597334677);
+            binary_hash ^= binary_hash >> 16;
+            let binary_char = if (binary_hash & 1) == 0 { '0' } else { '1' };
+
+            // Even cycles (0, 2, 4...): transform original -> binary
+            // Odd cycles (1, 3, 5...): transform binary -> original
+            let is_forward_pass = cycle.is_multiple_of(2);
+
+            // Check if the strip has passed this character yet
+            let has_strip_passed = diag_pos < offset;
+
+            if is_forward_pass {
+                // Forward pass: if strip has passed, show binary; otherwise show original
+                if has_strip_passed { binary_char } else { original_char }
+            } else {
+                // Reverse pass: if strip has passed, show original; otherwise show binary
+                if has_strip_passed { original_char } else { binary_char }
+            }
+        };
+
+    ProceduralAnimationWidget::new(
+        art,
+        50, // 50 frames worth of timing
+        Duration::from_millis(50),
+        color_fn,
+    )
+    .with_char_fn(char_fn)
+    .with_pause_at_end(Duration::from_secs(2))
 }
 
 // Start menu state
 struct StartMenuState {
     items: Vec<(String, Bits)>,
     list_state: ListState,
+    animation: ProceduralAnimationWidget,
+    number_mode: NumberMode,
 }
 
 impl StartMenuState {
-    fn new() -> Self {
-        Self::with_selected(get_last_selected_index())
+    fn new(prefs: AppPreferences) -> Self {
+        Self::with_preferences(prefs)
     }
 
-    fn with_selected(selected_index: usize) -> Self {
+    fn with_preferences(prefs: AppPreferences) -> Self {
         let items = vec![
-            ("easy       (4 bits)".to_string(), Bits::Four),
-            ("easy Two's complement (4 bits)".to_string(), Bits::FourTwosComplement),
-            ("easy+16    (4 bits*16)".to_string(), Bits::FourShift4),
-            ("easy+256   (4 bits*256)".to_string(), Bits::FourShift8),
-            ("easy+4096  (4 bits*4096)".to_string(), Bits::FourShift12),
-            ("normal     (8 bits)".to_string(), Bits::Eight),
-            ("master     (12 bits)".to_string(), Bits::Twelve),
-            ("insane     (16 bits)".to_string(), Bits::Sixteen),
+            ("nibble_0    4 bit".to_string(), Bits::Four),
+            ("nibble_1    4 bit*16".to_string(), Bits::FourShift4),
+            ("nibble_2    4 bit*256".to_string(), Bits::FourShift8),
+            ("nibble_3    4 bit*4096".to_string(), Bits::FourShift12),
+            ("byte        8 bit".to_string(), Bits::Eight),
+            ("hexlet     12 bit".to_string(), Bits::Twelve),
+            ("word       16 bit".to_string(), Bits::Sixteen),
         ];
 
-        Self { items, list_state: ListState::default().with_selected(Some(selected_index)) }
+        Self {
+            items,
+            list_state: ListState::default().with_selected(Some(prefs.last_selected_index)),
+            animation: ascii_animation(),
+            number_mode: prefs.last_number_mode,
+        }
     }
 
     fn selected_index(&self) -> usize {
@@ -283,9 +398,30 @@ impl StartMenuState {
         self.items[self.selected_index()].1.clone()
     }
     fn select_next(&mut self) {
-        self.list_state.select_next();
+        let current = self.selected_index();
+        let next = if current + 1 >= self.items.len() {
+            current // stay at last item
+        } else {
+            current + 1
+        };
+        self.list_state.select(Some(next));
     }
     fn select_previous(&mut self) {
-        self.list_state.select_previous();
+        let current = self.selected_index();
+        let prev = if current == 0 {
+            0 // stay at first item
+        } else {
+            current - 1
+        };
+        self.list_state.select(Some(prev));
+    }
+    fn toggle_animation(&mut self) {
+        self.animation.toggle_pause();
+    }
+    fn toggle_number_mode(&mut self) {
+        self.number_mode = match self.number_mode {
+            NumberMode::Unsigned => NumberMode::Signed,
+            NumberMode::Signed => NumberMode::Unsigned,
+        };
     }
 }

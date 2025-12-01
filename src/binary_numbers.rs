@@ -1,3 +1,4 @@
+use crate::app::{NumberMode, get_mode_color};
 use crate::keybinds;
 use crate::main_screen_widget::{MainScreenWidget, WidgetRef};
 use crate::utils::{When, center};
@@ -24,6 +25,7 @@ struct StatsSnapshot {
     rounds: u32,
     lives: u32,
     bits: Bits,
+    number_mode: NumberMode,
     hearts: String,
     game_state: GameState,
     prev_high_score: u32,
@@ -94,11 +96,10 @@ impl BinaryNumbersPuzzle {
                 Span::styled(format!("Hi-Score: {}  ", stats.prev_high_score), style)
             };
 
+            let mode_color = get_mode_color(&stats.bits);
+            let mode_label = format!("{} {}", stats.bits.label(), stats.number_mode.label());
             let line1 = Line::from(vec![
-                Span::styled(
-                    format!("Mode: {}  ", stats.bits.label()),
-                    Style::default().fg(Color::Yellow),
-                ),
+                Span::styled(format!("Mode: {}  ", mode_label), Style::default().fg(mode_color)),
                 high_label,
             ]);
 
@@ -190,13 +191,7 @@ impl BinaryNumbersPuzzle {
 
             Block::bordered().border_type(border_type).fg(border_color).render(area, buf);
 
-            let suggestion_str = if self.bits.is_twos_complement() {
-                // Convert raw bit pattern to signed value for display
-                let signed_val = self.bits.raw_to_signed(*suggestion);
-                format!("{signed_val}")
-            } else {
-                format!("{suggestion}")
-            };
+            let suggestion_str = format!("{suggestion}");
 
             #[allow(clippy::cast_possible_truncation)]
             Paragraph::new(suggestion_str.to_string())
@@ -374,6 +369,7 @@ fn render_game_over(
 pub struct BinaryNumbersGame {
     puzzle: BinaryNumbersPuzzle,
     bits: Bits,
+    number_mode: NumberMode,
     exit_intended: bool,
     score: u32,
     streak: u32,
@@ -418,15 +414,17 @@ impl MainScreenWidget for BinaryNumbersGame {
 }
 
 impl BinaryNumbersGame {
-    pub fn new(bits: Bits) -> Self {
-        Self::new_with_max_lives(bits, 3)
+    pub fn new(bits: Bits, number_mode: NumberMode) -> Self {
+        Self::new_with_max_lives(bits, number_mode, 3)
     }
-    pub fn new_with_max_lives(bits: Bits, max_lives: u32) -> Self {
+    pub fn new_with_max_lives(bits: Bits, number_mode: NumberMode, max_lives: u32) -> Self {
         let hs = HighScores::load();
-        let starting_prev = hs.get(bits.high_score_key());
+        let high_score_key = Self::compute_high_score_key(&bits, number_mode);
+        let starting_prev = hs.get(&high_score_key);
         let mut game = Self {
             bits: bits.clone(),
-            puzzle: Self::init_puzzle(bits, 0),
+            number_mode,
+            puzzle: Self::init_puzzle(bits, number_mode, 0),
             exit_intended: false,
             score: 0,
             streak: 0,
@@ -445,8 +443,17 @@ impl BinaryNumbersGame {
         game
     }
 
-    pub fn init_puzzle(bits: Bits, streak: u32) -> BinaryNumbersPuzzle {
-        BinaryNumbersPuzzle::new(bits, streak)
+    pub fn init_puzzle(bits: Bits, number_mode: NumberMode, streak: u32) -> BinaryNumbersPuzzle {
+        BinaryNumbersPuzzle::new(bits, number_mode, streak)
+    }
+
+    fn compute_high_score_key(bits: &Bits, number_mode: NumberMode) -> String {
+        let bits_key = bits.high_score_key();
+        let mode_suffix = match number_mode {
+            NumberMode::Unsigned => "u",
+            NumberMode::Signed => "s",
+        };
+        format!("{}{}", bits_key, mode_suffix)
     }
 
     pub fn is_active(&self) -> bool {
@@ -489,13 +496,13 @@ impl BinaryNumbersGame {
                 },
             }
             // high score update
-            let bits_key = self.bits.high_score_key();
-            let prev = self.high_scores.get(bits_key);
+            let bits_key = Self::compute_high_score_key(&self.bits, self.number_mode);
+            let prev = self.high_scores.get(&bits_key);
             if self.score > prev {
                 if !self.new_high_score_reached {
                     self.prev_high_score_for_display = prev;
                 }
-                self.high_scores.update(bits_key, self.score);
+                self.high_scores.update(&bits_key, self.score);
                 self.new_high_score_reached = true;
                 let _ = self.high_scores.save();
             }
@@ -544,9 +551,10 @@ impl BinaryNumbersGame {
         self.lives = self.max_lives.min(3);
         self.game_state = GameState::Active;
         self.max_streak = 0;
-        self.prev_high_score_for_display = self.high_scores.get(self.bits.high_score_key());
+        let high_score_key = Self::compute_high_score_key(&self.bits, self.number_mode);
+        self.prev_high_score_for_display = self.high_scores.get(&high_score_key);
         self.new_high_score_reached = false;
-        self.puzzle = Self::init_puzzle(self.bits.clone(), 0);
+        self.puzzle = Self::init_puzzle(self.bits.clone(), self.number_mode, 0);
         self.puzzle_resolved = false;
         self.refresh_stats_snapshot();
     }
@@ -609,7 +617,8 @@ impl BinaryNumbersGame {
                     },
                     GameState::Result => {
                         // start next puzzle
-                        self.puzzle = Self::init_puzzle(self.bits.clone(), self.streak);
+                        self.puzzle =
+                            Self::init_puzzle(self.bits.clone(), self.number_mode, self.streak);
                         self.puzzle_resolved = false;
                         self.game_state = GameState::Active;
                     },
@@ -630,6 +639,7 @@ impl BinaryNumbersGame {
             rounds: self.rounds,
             lives: self.lives,
             bits: self.bits.clone(),
+            number_mode: self.number_mode,
             hearts: self.lives_hearts(),
             game_state: self.game_state,
             prev_high_score: self.prev_high_score_for_display,
@@ -648,7 +658,6 @@ enum GuessResult {
 #[derive(Clone)]
 pub enum Bits {
     Four,
-    FourTwosComplement,
     FourShift4,
     FourShift8,
     FourShift12,
@@ -660,11 +669,7 @@ pub enum Bits {
 impl Bits {
     pub const fn to_int(&self) -> u32 {
         match self {
-            Self::Four
-            | Self::FourShift4
-            | Self::FourShift8
-            | Self::FourShift12
-            | Self::FourTwosComplement => 4,
+            Self::Four | Self::FourShift4 | Self::FourShift8 | Self::FourShift12 => 4,
             Self::Eight => 8,
             Self::Twelve => 12,
             Self::Sixteen => 16,
@@ -673,7 +678,6 @@ impl Bits {
     pub const fn scale_factor(&self) -> u32 {
         match self {
             Self::Four => 1,
-            Self::FourTwosComplement => 1,
             Self::FourShift4 => 16,
             Self::FourShift8 => 256,
             Self::FourShift12 => 4096,
@@ -685,7 +689,6 @@ impl Bits {
     pub const fn high_score_key(&self) -> u32 {
         match self {
             Self::Four => 4,
-            Self::FourTwosComplement => 42, // separate key for two's complement
             Self::FourShift4 => 44,
             Self::FourShift8 => 48,
             Self::FourShift12 => 412,
@@ -699,11 +702,7 @@ impl Bits {
     }
     pub const fn suggestion_count(&self) -> usize {
         match self {
-            Self::Four
-            | Self::FourShift4
-            | Self::FourShift8
-            | Self::FourShift12
-            | Self::FourTwosComplement => 3,
+            Self::Four | Self::FourShift4 | Self::FourShift8 | Self::FourShift12 => 3,
             Self::Eight => 4,
             Self::Twelve => 5,
             Self::Sixteen => 6,
@@ -711,39 +710,26 @@ impl Bits {
     }
     pub const fn label(&self) -> &'static str {
         match self {
-            Self::Four => "4 bits",
-            Self::FourTwosComplement => "4 bits (Two's complement)",
-            Self::FourShift4 => "4 bits*16",
-            Self::FourShift8 => "4 bits*256",
-            Self::FourShift12 => "4 bits*4096",
-            Self::Eight => "8 bits",
-            Self::Twelve => "12 bits",
-            Self::Sixteen => "16 bits",
+            Self::Four => "4 bit",
+            Self::FourShift4 => "4 bit*16",
+            Self::FourShift8 => "4 bit*256",
+            Self::FourShift12 => "4 bit*4096",
+            Self::Eight => "8 bit",
+            Self::Twelve => "12 bit",
+            Self::Sixteen => "16 bit",
         }
-    }
-
-    /// Convert raw bit pattern to signed value for two's complement mode
-    pub const fn raw_to_signed(&self, raw: u32) -> i32 {
-        match self {
-            Self::FourTwosComplement => {
-                // 4-bit two's complement: range -8 to +7
-                if raw >= 8 { (raw as i32) - 16 } else { raw as i32 }
-            },
-            _ => raw as i32, // other modes use unsigned
-        }
-    }
-
-    pub const fn is_twos_complement(&self) -> bool {
-        matches!(self, Self::FourTwosComplement)
     }
 }
 
 pub struct BinaryNumbersPuzzle {
     bits: Bits,
-    current_number: u32,     // scaled value used for suggestions matching
+    #[allow(dead_code)]
+    number_mode: NumberMode,
+    #[allow(dead_code)]
+    current_number: u32, // scaled value used for suggestions matching
     raw_current_number: u32, // raw bit value (unscaled) for display
-    suggestions: Vec<u32>,
-    selected_suggestion: Option<u32>,
+    suggestions: Vec<i32>,   // Changed to i32 to support signed values
+    selected_suggestion: Option<i32>,
     time_total: f64,
     time_left: f64,
     guess_result: Option<GuessResult>,
@@ -753,62 +739,81 @@ pub struct BinaryNumbersPuzzle {
 }
 
 impl BinaryNumbersPuzzle {
-    pub fn new(bits: Bits, streak: u32) -> Self {
+    pub fn new(bits: Bits, number_mode: NumberMode, streak: u32) -> Self {
         let mut rng = rand::rng();
 
         let mut suggestions = Vec::new();
         let scale = bits.scale_factor();
+        let num_bits = bits.to_int();
 
-        if bits.is_twos_complement() {
-            // For two's complement, generate unique raw bit patterns (0-15)
-            let mut raw_values: Vec<u32> = Vec::new();
-            while raw_values.len() < bits.suggestion_count() {
-                let raw = rng.random_range(0..u32::pow(2, bits.to_int()));
-                if !raw_values.contains(&raw) {
-                    raw_values.push(raw);
+        match number_mode {
+            NumberMode::Unsigned => {
+                while suggestions.len() < bits.suggestion_count() {
+                    let raw = rng.random_range(0..u32::pow(2, num_bits));
+                    let num = (raw * scale) as i32;
+                    if !suggestions.contains(&num) {
+                        suggestions.push(num);
+                    }
                 }
-            }
-            // Store raw bit patterns directly
-            suggestions = raw_values;
-        } else {
-            // For unsigned modes
-            while suggestions.len() < bits.suggestion_count() {
-                let raw = rng.random_range(0..u32::pow(2, bits.to_int()));
-                let num = raw * scale;
-                if !suggestions.contains(&num) {
-                    suggestions.push(num);
+            },
+            NumberMode::Signed => {
+                // For signed mode, use two's complement representation
+                // Range is from -(2^(n-1)) to 2^(n-1)-1
+                while suggestions.len() < bits.suggestion_count() {
+                    let raw = rng.random_range(0..u32::pow(2, num_bits));
+                    // Convert raw bits to signed value using two's complement
+                    let signed_val = if raw >= (1 << (num_bits - 1)) {
+                        // Negative number: raw - 2^n
+                        (raw as i32) - (1 << num_bits)
+                    } else {
+                        // Positive number
+                        raw as i32
+                    };
+                    let num = signed_val * (scale as i32);
+                    if !suggestions.contains(&num) {
+                        suggestions.push(num);
+                    }
                 }
-            }
+            },
         }
 
-        let current_number = suggestions[0]; // scaled value or raw for twos complement
-        let raw_current_number = if bits.is_twos_complement() {
-            current_number // for two's complement, it's already the raw bit pattern
-        } else {
-            current_number / scale // back-calculate raw bits
-        };
+        // Shuffle suggestions
         suggestions.shuffle(&mut rng);
 
-        // Base time by bits + difficulty scaling (shorter as streak increases)
-        let base_time = match bits {
-            Bits::Four
-            | Bits::FourShift4
-            | Bits::FourShift8
-            | Bits::FourShift12
-            | Bits::FourTwosComplement => 8.0,
-            Bits::Eight => 12.0,
-            Bits::Twelve => 16.0,
-            Bits::Sixteen => 20.0,
+        // Pick first suggestion as the current number
+        let current_number_signed = suggestions[0];
+
+        // Calculate raw_current_number based on mode
+        let raw_current_number = match number_mode {
+            NumberMode::Unsigned => {
+                let current_number = current_number_signed.unsigned_abs();
+                current_number / scale
+            },
+            NumberMode::Signed => {
+                // For signed mode, we need to preserve the two's complement representation
+                // First, get the unscaled signed value
+                let unscaled_signed = current_number_signed / (scale as i32);
+
+                // Convert to unsigned bits using two's complement masking
+                // For n-bit number, mask is (2^n - 1)
+                let mask = (1u32 << num_bits) - 1;
+                (unscaled_signed as u32) & mask
+            },
         };
-        let penalty = f64::from(streak) * 0.5; // 0.5s less per streak
-        let time_total = (base_time - penalty).max(5.0);
+
+        let current_number = current_number_signed.unsigned_abs();
+
+        // Calculate time based on difficulty
+        let time_total = 10.0 - (streak.min(8) as f64 * 0.5);
         let time_left = time_total;
+
         let selected_suggestion = Some(suggestions[0]);
         let guess_result = None;
         let last_points_awarded = 0;
 
         Self {
             bits,
+            number_mode,
             current_number,
             raw_current_number,
             suggestions,
@@ -818,15 +823,16 @@ impl BinaryNumbersPuzzle {
             guess_result,
             last_points_awarded,
             stats_snapshot: None,
-            skip_first_dt: true, // Skip first dt to prevent timer jump
+            skip_first_dt: true,
         }
     }
 
-    pub fn suggestions(&self) -> &[u32] {
+    pub fn suggestions(&self) -> &[i32] {
         &self.suggestions
     }
-    pub const fn is_correct_guess(&self, guess: u32) -> bool {
-        guess == self.current_number
+
+    pub fn is_correct_guess(&self, guess: i32) -> bool {
+        guess == self.suggestions[0]
     }
 
     pub fn current_to_binary_string(&self) -> String {
@@ -841,19 +847,14 @@ impl BinaryNumbersPuzzle {
     }
 
     pub fn run(&mut self, dt: f64) {
-        if self.guess_result.is_some() {
-            // If a guess has been made, we don't need to run the game logic anymore.
-            return;
-        }
-
-        // Skip first dt to prevent timer jump when starting new puzzle
         if self.skip_first_dt {
             self.skip_first_dt = false;
             return;
         }
-
-        self.time_left = (self.time_left - dt).max(0.0);
-
+        if self.guess_result.is_some() {
+            return;
+        }
+        self.time_left -= dt;
         if self.time_left <= 0.0 {
             self.guess_result = Some(GuessResult::Timeout);
         }
@@ -894,7 +895,7 @@ fn render_ascii_gauge(area: Rect, buf: &mut Buffer, ratio: f64, color: Color) {
 }
 
 struct HighScores {
-    scores: HashMap<u32, u32>,
+    scores: HashMap<String, u32>,
 }
 
 impl HighScores {
@@ -911,10 +912,9 @@ impl HighScores {
             if file.read_to_string(&mut contents).is_ok() {
                 for line in contents.lines() {
                     if let Some((k, v)) = line.split_once('=')
-                        && let Ok(bits) = k.trim().parse::<u32>()
                         && let Ok(score) = v.trim().parse::<u32>()
                     {
-                        hs.scores.insert(bits, score);
+                        hs.scores.insert(k.trim().to_string(), score);
                     }
                 }
             }
@@ -924,7 +924,10 @@ impl HighScores {
 
     fn save(&self) -> std::io::Result<()> {
         let mut data = String::new();
-        for key in [4u32, 42u32, 44u32, 48u32, 412u32, 8u32, 12u32, 16u32] {
+        for key in [
+            "4u", "4s", "44u", "44s", "48u", "48s", "412u", "412s", "8u", "8s", "12u", "12s",
+            "16u", "16s",
+        ] {
             let val = self.get(key);
             let _ = writeln!(data, "{key}={val}");
         }
@@ -932,12 +935,12 @@ impl HighScores {
         file.write_all(data.as_bytes())
     }
 
-    fn get(&self, bits: u32) -> u32 {
-        *self.scores.get(&bits).unwrap_or(&0)
+    fn get(&self, bits: &str) -> u32 {
+        *self.scores.get(bits).unwrap_or(&0)
     }
 
-    fn update(&mut self, bits: u32, score: u32) {
-        self.scores.insert(bits, score);
+    fn update(&mut self, bits: &str, score: u32) {
+        self.scores.insert(bits.to_string(), score);
     }
 }
 
@@ -951,7 +954,8 @@ mod tests {
     static HS_LOCK: Mutex<()> = Mutex::new(());
 
     fn with_high_score_file<F: FnOnce()>(f: F) {
-        let _guard = HS_LOCK.lock().unwrap();
+        #[allow(clippy::expect_used)]
+        let _guard = HS_LOCK.lock().expect("Failed to lock high score mutex");
         let original = fs::read_to_string(HighScores::FILE).ok();
         f();
         // restore
@@ -984,7 +988,7 @@ mod tests {
 
     #[test]
     fn puzzle_generation_unique_and_scaled() {
-        let p = BinaryNumbersPuzzle::new(Bits::FourShift4.clone(), 0);
+        let p = BinaryNumbersPuzzle::new(Bits::FourShift4.clone(), NumberMode::Unsigned, 0);
         let scale = Bits::FourShift4.scale_factor();
         assert_eq!(p.suggestions().len(), Bits::FourShift4.suggestion_count());
         // uniqueness
@@ -995,26 +999,81 @@ mod tests {
         }
         // scaling property
         for &s in p.suggestions() {
-            assert_eq!(s % scale, 0);
+            assert_eq!(s.unsigned_abs() % scale, 0);
         }
         // current number must be one of suggestions and raw_current_number * scale == current_number
-        assert!(p.suggestions().contains(&p.current_number));
+        assert!(p.suggestions().contains(&(p.current_number as i32)));
         assert_eq!(p.raw_current_number * scale, p.current_number);
     }
 
     #[test]
     fn binary_string_formatting_groups_every_four_bits() {
-        let mut p = BinaryNumbersPuzzle::new(Bits::Eight, 0);
+        let mut p = BinaryNumbersPuzzle::new(Bits::Eight, NumberMode::Unsigned, 0);
         p.raw_current_number = 0xAB; // 171 = 10101011
         assert_eq!(p.current_to_binary_string(), "1010 1011");
-        let mut p4 = BinaryNumbersPuzzle::new(Bits::Four, 0);
+        let mut p4 = BinaryNumbersPuzzle::new(Bits::Four, NumberMode::Unsigned, 0);
         p4.raw_current_number = 0b0101;
         assert_eq!(p4.current_to_binary_string(), "0101");
     }
 
     #[test]
+    fn signed_mode_negative_numbers_show_sign_bit() {
+        // Test 4-bit signed mode with a negative number
+        let mut p = BinaryNumbersPuzzle::new(Bits::Four, NumberMode::Signed, 0);
+        // In 4-bit two's complement, -8 is represented as 1000
+        p.raw_current_number = 0b1000; // -8 in 4-bit two's complement
+        assert_eq!(p.current_to_binary_string(), "1000", "4-bit: -8 should be 1000");
+
+        // In 4-bit two's complement, -1 is represented as 1111
+        p.raw_current_number = 0b1111; // -1 in 4-bit two's complement
+        assert_eq!(p.current_to_binary_string(), "1111", "4-bit: -1 should be 1111");
+
+        // Test 8-bit signed mode with a negative number
+        let mut p8 = BinaryNumbersPuzzle::new(Bits::Eight, NumberMode::Signed, 0);
+        // In 8-bit two's complement, -128 is represented as 10000000
+        p8.raw_current_number = 0b10000000; // -128 in 8-bit two's complement
+        assert_eq!(p8.current_to_binary_string(), "1000 0000", "8-bit: -128 should be 1000 0000");
+
+        // In 8-bit two's complement, -1 is represented as 11111111
+        p8.raw_current_number = 0b11111111; // -1 in 8-bit two's complement
+        assert_eq!(p8.current_to_binary_string(), "1111 1111", "8-bit: -1 should be 1111 1111");
+    }
+
+    #[test]
+    fn signed_mode_puzzle_generates_correct_raw_bits_for_negative() {
+        // Generate many puzzles and check that when we have a negative number,
+        // the raw_current_number has the sign bit set correctly
+        for _ in 0..20 {
+            let p = BinaryNumbersPuzzle::new(Bits::Four, NumberMode::Signed, 0);
+            let current_signed = p.suggestions[0];
+
+            if current_signed < 0 {
+                // For negative numbers in 4-bit two's complement, the MSB (bit 3) should be 1
+                // which means raw_current_number should be >= 8 (0b1000)
+                assert!(
+                    p.raw_current_number >= 8,
+                    "Negative number {} should have raw bits >= 8 (sign bit set), but got {}. Binary: {}",
+                    current_signed,
+                    p.raw_current_number,
+                    p.current_to_binary_string()
+                );
+            } else {
+                // For positive numbers (including 0), MSB should be 0
+                // which means raw_current_number should be < 8
+                assert!(
+                    p.raw_current_number < 8,
+                    "Positive number {} should have raw bits < 8 (sign bit clear), but got {}. Binary: {}",
+                    current_signed,
+                    p.raw_current_number,
+                    p.current_to_binary_string()
+                );
+            }
+        }
+    }
+
+    #[test]
     fn puzzle_timeout_sets_guess_result() {
-        let mut p = BinaryNumbersPuzzle::new(Bits::Four, 0);
+        let mut p = BinaryNumbersPuzzle::new(Bits::Four, NumberMode::Unsigned, 0);
         p.time_left = 0.5;
         // First run() skips dt due to skip_first_dt flag
         // The reason for this is to prevent timer jump when starting a new puzzle
@@ -1028,9 +1087,9 @@ mod tests {
     #[test]
     fn finalize_round_correct_increments_score_streak_and_sets_result_state() {
         with_high_score_file(|| {
-            let mut g = BinaryNumbersGame::new(Bits::Four);
+            let mut g = BinaryNumbersGame::new(Bits::Four, NumberMode::Unsigned);
             // ensure deterministic: mark puzzle correct
-            let answer = g.puzzle.current_number;
+            let answer = g.puzzle.current_number as i32;
             g.puzzle.guess_result = Some(GuessResult::Correct);
             g.finalize_round();
             assert_eq!(g.streak, 1);
@@ -1045,7 +1104,7 @@ mod tests {
     #[test]
     fn life_awarded_every_five_streak() {
         with_high_score_file(|| {
-            let mut g = BinaryNumbersGame::new_with_max_lives(Bits::Four, 3);
+            let mut g = BinaryNumbersGame::new_with_max_lives(Bits::Four, NumberMode::Unsigned, 3);
             g.lives = 2; // below max
             g.streak = 4; // about to become 5
             g.puzzle.guess_result = Some(GuessResult::Correct);
@@ -1058,7 +1117,7 @@ mod tests {
     #[test]
     fn incorrect_guess_resets_streak_and_loses_life() {
         with_high_score_file(|| {
-            let mut g = BinaryNumbersGame::new(Bits::Four);
+            let mut g = BinaryNumbersGame::new(Bits::Four, NumberMode::Unsigned);
             g.streak = 3;
             let lives_before = g.lives;
             g.puzzle.guess_result = Some(GuessResult::Incorrect);
@@ -1071,7 +1130,7 @@ mod tests {
     #[test]
     fn pending_game_over_when_life_reaches_zero() {
         with_high_score_file(|| {
-            let mut g = BinaryNumbersGame::new(Bits::Four);
+            let mut g = BinaryNumbersGame::new(Bits::Four, NumberMode::Unsigned);
             g.lives = 1;
             g.puzzle.guess_result = Some(GuessResult::Incorrect);
             g.finalize_round();
@@ -1083,28 +1142,29 @@ mod tests {
     #[test]
     fn high_score_updates_and_flag_set() {
         with_high_score_file(|| {
-            let mut g = BinaryNumbersGame::new(Bits::Four);
+            let mut g = BinaryNumbersGame::new(Bits::Four, NumberMode::Unsigned);
             // Force previous high score low
-            g.high_scores.update(g.bits.high_score_key(), 5);
+            let key = BinaryNumbersGame::compute_high_score_key(&g.bits, g.number_mode);
+            g.high_scores.update(&key, 5);
             g.prev_high_score_for_display = 5;
             g.puzzle.guess_result = Some(GuessResult::Correct);
             g.finalize_round();
             assert!(g.new_high_score_reached);
-            assert!(g.high_scores.get(g.bits.high_score_key()) >= 10);
+            assert!(g.high_scores.get(&key) >= 10);
             assert_eq!(g.prev_high_score_for_display, 5); // previous stored
         });
     }
 
     #[test]
     fn hearts_representation_matches_lives() {
-        let mut g = BinaryNumbersGame::new_with_max_lives(Bits::Four, 3);
+        let mut g = BinaryNumbersGame::new_with_max_lives(Bits::Four, NumberMode::Unsigned, 3);
         g.lives = 2;
         assert_eq!(g.lives_hearts(), "♥♥·");
     }
 
     #[test]
     fn handle_input_navigation_changes_selected_suggestion() {
-        let mut g = BinaryNumbersGame::new(Bits::Four);
+        let mut g = BinaryNumbersGame::new(Bits::Four, NumberMode::Unsigned);
         let initial = g.puzzle.selected_suggestion;
         // Simulate Right key
         let right_event = KeyEvent {
