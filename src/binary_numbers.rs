@@ -660,7 +660,11 @@ pub enum Bits {
 impl Bits {
     pub const fn to_int(&self) -> u32 {
         match self {
-            Self::Four | Self::FourShift4 | Self::FourShift8 | Self::FourShift12  | Self::FourTwosComplement=> 4,
+            Self::Four
+            | Self::FourShift4
+            | Self::FourShift8
+            | Self::FourShift12
+            | Self::FourTwosComplement => 4,
             Self::Eight => 8,
             Self::Twelve => 12,
             Self::Sixteen => 16,
@@ -695,7 +699,11 @@ impl Bits {
     }
     pub const fn suggestion_count(&self) -> usize {
         match self {
-            Self::Four | Self::FourShift4 | Self::FourShift8 | Self::FourShift12 | Self::FourTwosComplement => 3,
+            Self::Four
+            | Self::FourShift4
+            | Self::FourShift8
+            | Self::FourShift12
+            | Self::FourTwosComplement => 3,
             Self::Eight => 4,
             Self::Twelve => 5,
             Self::Sixteen => 6,
@@ -719,11 +727,7 @@ impl Bits {
         match self {
             Self::FourTwosComplement => {
                 // 4-bit two's complement: range -8 to +7
-                if raw >= 8 {
-                    (raw as i32) - 16
-                } else {
-                    raw as i32
-                }
+                if raw >= 8 { (raw as i32) - 16 } else { raw as i32 }
             },
             _ => raw as i32, // other modes use unsigned
         }
@@ -754,7 +758,7 @@ impl BinaryNumbersPuzzle {
 
         let mut suggestions = Vec::new();
         let scale = bits.scale_factor();
-        
+
         if bits.is_twos_complement() {
             // For two's complement, generate unique raw bit patterns (0-15)
             let mut raw_values: Vec<u32> = Vec::new();
@@ -787,7 +791,11 @@ impl BinaryNumbersPuzzle {
 
         // Base time by bits + difficulty scaling (shorter as streak increases)
         let base_time = match bits {
-            Bits::Four | Bits::FourShift4 | Bits::FourShift8 | Bits::FourShift12 | Bits::FourTwosComplement => 8.0,
+            Bits::Four
+            | Bits::FourShift4
+            | Bits::FourShift8
+            | Bits::FourShift12
+            | Bits::FourTwosComplement => 8.0,
             Bits::Eight => 12.0,
             Bits::Twelve => 16.0,
             Bits::Sixteen => 20.0,
