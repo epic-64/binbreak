@@ -728,6 +728,7 @@ pub struct BinaryNumbersPuzzle {
     /// In signed mode, negative numbers use two's complement representation:
     /// - For -1 in 4-bit: raw_current_number = 15 (0b1111), displayed as "1111"
     /// - For -8 in 4-bit: raw_current_number = 8 (0b1000), displayed as "1000"
+    /// 
     /// The same bit pattern has different meanings in signed vs unsigned mode.
     raw_current_number: u32,
     suggestions: Vec<i32>,
