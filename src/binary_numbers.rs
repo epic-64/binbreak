@@ -723,10 +723,6 @@ impl Bits {
 
 pub struct BinaryNumbersPuzzle {
     bits: Bits,
-    #[allow(dead_code)]
-    number_mode: NumberMode,
-    #[allow(dead_code)]
-    current_number: u32, // scaled value used for suggestions matching
     raw_current_number: u32, // raw bit value (unscaled) for display
     suggestions: Vec<i32>,   // Changed to i32 to support signed values
     correct_answer: i32,     // The correct answer (one of the suggestions)
@@ -804,8 +800,6 @@ impl BinaryNumbersPuzzle {
             },
         };
 
-        let current_number = current_number_signed.unsigned_abs();
-
         // Calculate time based on difficulty
         let time_total = 10.0 - (streak.min(8) as f64 * 0.5);
         let time_left = time_total;
@@ -816,8 +810,6 @@ impl BinaryNumbersPuzzle {
 
         Self {
             bits,
-            number_mode,
-            current_number,
             raw_current_number,
             suggestions,
             correct_answer: current_number_signed,
@@ -1005,9 +997,9 @@ mod tests {
         for &s in p.suggestions() {
             assert_eq!(s.unsigned_abs() % scale, 0);
         }
-        // current number must be one of suggestions and raw_current_number * scale == current_number
-        assert!(p.suggestions().contains(&(p.current_number as i32)));
-        assert_eq!(p.raw_current_number * scale, p.current_number);
+        // correct answer must be one of suggestions and raw_current_number * scale == correct_answer (unsigned)
+        assert!(p.suggestions().contains(&p.correct_answer));
+        assert_eq!(p.raw_current_number * scale, p.correct_answer.unsigned_abs());
     }
 
     #[test]
@@ -1131,7 +1123,7 @@ mod tests {
         with_high_score_file(|| {
             let mut g = BinaryNumbersGame::new(Bits::Four, NumberMode::Unsigned);
             // ensure deterministic: mark puzzle correct
-            let answer = g.puzzle.current_number as i32;
+            let answer = g.puzzle.correct_answer;
             g.puzzle.guess_result = Some(GuessResult::Correct);
             g.finalize_round();
             assert_eq!(g.streak, 1);
