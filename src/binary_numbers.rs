@@ -730,8 +730,8 @@ pub struct BinaryNumbersPuzzle {
     /// - For -8 in 4-bit: raw_current_number = 8 (0b1000), displayed as "1000"
     /// The same bit pattern has different meanings in signed vs unsigned mode.
     raw_current_number: u32,
-    suggestions: Vec<i32>,   // Changed to i32 to support signed values
-    correct_answer: i32,     // The correct answer (one of the suggestions)
+    suggestions: Vec<i32>,
+    correct_answer: i32,
     selected_suggestion: Option<i32>,
     time_total: f64,
     time_left: f64,
@@ -786,7 +786,6 @@ impl BinaryNumbersPuzzle {
 
         // Shuffle suggestions so the correct answer is in a random position
         suggestions.shuffle(&mut rng);
-
 
         // Calculate raw_current_number based on mode
         let raw_current_number = match number_mode {
