@@ -729,6 +729,7 @@ pub struct BinaryNumbersPuzzle {
     current_number: u32, // scaled value used for suggestions matching
     raw_current_number: u32, // raw bit value (unscaled) for display
     suggestions: Vec<i32>,   // Changed to i32 to support signed values
+    correct_answer: i32,     // The correct answer (one of the suggestions)
     selected_suggestion: Option<i32>,
     time_total: f64,
     time_left: f64,
@@ -777,11 +778,13 @@ impl BinaryNumbersPuzzle {
             },
         }
 
-        // Shuffle suggestions
+        // Pick a random suggestion as the current number
+        let correct_index = rng.random_range(0..suggestions.len());
+        let current_number_signed = suggestions[correct_index];
+
+        // Shuffle suggestions so the correct answer is in a random position
         suggestions.shuffle(&mut rng);
 
-        // Pick first suggestion as the current number
-        let current_number_signed = suggestions[0];
 
         // Calculate raw_current_number based on mode
         let raw_current_number = match number_mode {
@@ -817,6 +820,7 @@ impl BinaryNumbersPuzzle {
             current_number,
             raw_current_number,
             suggestions,
+            correct_answer: current_number_signed,
             time_total,
             time_left,
             selected_suggestion,
@@ -832,7 +836,7 @@ impl BinaryNumbersPuzzle {
     }
 
     pub fn is_correct_guess(&self, guess: i32) -> bool {
-        guess == self.suggestions[0]
+        guess == self.correct_answer
     }
 
     pub fn current_to_binary_string(&self) -> String {
@@ -1045,7 +1049,7 @@ mod tests {
         // the raw_current_number has the sign bit set correctly
         for _ in 0..20 {
             let p = BinaryNumbersPuzzle::new(Bits::Four, NumberMode::Signed, 0);
-            let current_signed = p.suggestions[0];
+            let current_signed = p.correct_answer;
 
             if current_signed < 0 {
                 // For negative numbers in 4-bit two's complement, the MSB (bit 3) should be 1
@@ -1082,6 +1086,44 @@ mod tests {
         // Second run() actually applies the dt and triggers timeout
         p.run(1.0); // exceed remaining time
         assert_eq!(p.guess_result, Some(GuessResult::Timeout));
+    }
+
+    #[test]
+    fn suggestions_are_randomized() {
+        // Verify that suggestions are properly randomized and the first suggestion
+        // is not always the correct answer
+        let mut first_is_correct_count = 0;
+        let trials = 100;
+
+        for _ in 0..trials {
+            let p = BinaryNumbersPuzzle::new(Bits::Four, NumberMode::Unsigned, 0);
+            // Check if the first suggestion happens to be the correct answer
+            if p.suggestions[0] == p.correct_answer {
+                first_is_correct_count += 1;
+            }
+        }
+
+        // With 3 suggestions for 4-bit mode, we expect roughly 33% to be correct by chance
+        // Allow a range of 20-50% (which is generous for 100 trials to account for randomness)
+        // The key point is that it's NOT 100% (which would indicate no randomization)
+        assert!(
+            first_is_correct_count >= 20 && first_is_correct_count <= 50,
+            "First suggestion was correct {} times out of {}, expected around 33% (20-50 range). \
+             If this is close to 100%, suggestions are not randomized!",
+            first_is_correct_count,
+            trials
+        );
+
+        // Also verify that the correct answer is actually one of the suggestions
+        for _ in 0..10 {
+            let p = BinaryNumbersPuzzle::new(Bits::Eight, NumberMode::Signed, 0);
+            assert!(
+                p.suggestions.contains(&p.correct_answer),
+                "correct_answer {} must be in suggestions {:?}",
+                p.correct_answer,
+                p.suggestions
+            );
+        }
     }
 
     #[test]
