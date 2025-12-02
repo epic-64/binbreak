@@ -1,6 +1,6 @@
 [package]
 name = "binbreak"
-version = "0.3.0"
+version = "0.3.1"
 description = "A terminal based binary number guessing game"
 authors = ["William Raendchen <william@holonaut.io>"]
 license = "MIT"
