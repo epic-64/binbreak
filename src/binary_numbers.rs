@@ -723,7 +723,13 @@ impl Bits {
 
 pub struct BinaryNumbersPuzzle {
     bits: Bits,
-    raw_current_number: u32, // raw bit value (unscaled) for display
+    /// Raw bit pattern (unscaled) for display as binary string.
+    /// This is u32 (not i32) because it stores the BIT PATTERN, not the numeric value.
+    /// In signed mode, negative numbers use two's complement representation:
+    /// - For -1 in 4-bit: raw_current_number = 15 (0b1111), displayed as "1111"
+    /// - For -8 in 4-bit: raw_current_number = 8 (0b1000), displayed as "1000"
+    /// The same bit pattern has different meanings in signed vs unsigned mode.
+    raw_current_number: u32,
     suggestions: Vec<i32>,   // Changed to i32 to support signed values
     correct_answer: i32,     // The correct answer (one of the suggestions)
     selected_suggestion: Option<i32>,
@@ -790,10 +796,13 @@ impl BinaryNumbersPuzzle {
             },
             NumberMode::Signed => {
                 // For signed mode, we need to preserve the two's complement representation
-                // First, get the unscaled signed value
+                // Example: -1 in 4-bit two's complement is 0b1111
+                // We cast i32 to u32 (preserving bit pattern), then mask to n-bits
+                // Result: -1 becomes 15u32 (0b1111), which displays as "1111"
                 let unscaled_signed = current_number_signed / (scale as i32);
 
                 // Convert to unsigned bits using two's complement masking
+                // Casting i32 to u32 reinterprets the bits (not a numeric conversion)
                 // For n-bit number, mask is (2^n - 1)
                 let mask = (1u32 << num_bits) - 1;
                 (unscaled_signed as u32) & mask
