@@ -1,24 +1,25 @@
 [![CI](https://github.com/epic-64/binbreak/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/epic-64/binbreak/actions)
 [![Built With Ratatui](https://ratatui.rs/built-with-ratatui/badge.svg)](https://ratatui.rs/)
 
-https://github.com/user-attachments/assets/4413fe8d-9a3f-4c00-9c1a-b9ca01a946fc
+![splash.gif](docs/splash.gif)
 
 Guess the correct number (from binary to decimal) before time runs out!
-![sc3.png](docs/sc3.png)
+![sc10.png](docs/sc10.png)
 
 Or lose a life trying.
-![sc4.png](docs/sc4.png)
+![sc11.png](docs/sc11.png)
 
-Includes 16-bit mode as well, when you feel a little bit insane.
-![sc6.png](docs/sc6.png)
+Includes up to 16-bit modes for the ultimate challenge.
+![sc13.png](docs/sc13.png)
 
 Includes multiple 4-bit modes, to train individual nibbles.
-![sc5.png](docs/sc5.png)
+![sc14.png](docs/sc14.png)
 
-## Colorblind friendly
-I discovered usability issues early on while testing on a monochromatic terminal emulator,
-and took this as a challenge to make it work well regardless of color perception.
-![sc7.png](docs/sc7.png)
+All bit-modes can also be played in signed or unsigned mode. (toggle via left/right keys)
+![signed-toggle.gif](docs/signed-toggle.gif)
+
+Signed mode includes negative numbers and requires knowledge of two's complement.
+![sc12.png](docs/sc12.png)
 
 ## Can you crack the high score?
 The longer your streak, the more points you get, but the faster the timer runs out!
